@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading, Modal } from '../components/ui'
@@ -33,7 +33,7 @@ export default function Moments() {
 
   const [composing, setComposing] = useState(false)
   const [pending, setPending] = useState<{ file: File; preview: string } | null>(null)
-  const [caption, setCaption] = useState('')
+  const captionRef = useRef<HTMLInputElement>(null)
   const [disappears, setDisappears] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -96,7 +96,7 @@ export default function Moments() {
         author_id: userId,
         storage_path: uploaded.path,
         media_type: 'photo',
-        caption: caption.trim() || null,
+        caption: captionRef.current?.value.trim() || null,
         expires_at: disappears
           ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
           : null,
@@ -105,7 +105,7 @@ export default function Moments() {
 
       URL.revokeObjectURL(pending.preview)
       setPending(null)
-      setCaption('')
+      if (captionRef.current) captionRef.current.value = ''
       setDisappears(false)
       setComposing(false)
       await load()
@@ -224,9 +224,14 @@ export default function Moments() {
               className="aspect-square w-full rounded-3xl object-cover"
             />
 
+            {/* Uncontrolled on purpose. As a controlled input, every keystroke
+                re-rendered this whole screen — realtime subscription, image
+                preview and all — and on iOS that was enough to drop focus and
+                close the keyboard after each letter. The value is read from the
+                ref when sending, so typing touches nothing but the field. */}
             <input
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
+              ref={captionRef}
+              defaultValue=""
               maxLength={120}
               placeholder="Say something… (optional)"
               className="w-full rounded-xl border border-rose-700/40 bg-rose-950/50 px-3 py-2.5 text-sm text-rose-100 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
