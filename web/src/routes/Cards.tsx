@@ -143,7 +143,7 @@ export default function Cards() {
           <div className="flip-scene">
             <div key={card.id} className={cx('flip-card min-h-[260px]', flipped && 'is-flipped')}>
               {/* face down */}
-              <div className="card-back flex min-h-[260px] items-center justify-center rounded-3xl">
+              <div className="flip-face flip-front card-back flex min-h-[260px] items-center justify-center rounded-3xl">
                 <span className="text-4xl opacity-60">🃏</span>
               </div>
 

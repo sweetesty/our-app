@@ -246,11 +246,20 @@
     grid-area: 1 / 1;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
+    /* iOS Safari does not reliably honour backface-visibility inside a
+       preserve-3d parent, so the hidden face kept painting over the visible
+       one — the padlock sat on top of the answer. Hiding it outright is the
+       only dependable way. The delay lands at the halfway point of the turn,
+       so the swap happens while the card is edge-on and cannot be seen. */
+    transition: opacity 0s linear 0.35s;
   }
 
   .flip-back {
     transform: rotateY(180deg);
   }
+
+  .flip-card.is-flipped .flip-front { opacity: 0; pointer-events: none; }
+  .flip-card:not(.is-flipped) .flip-back { opacity: 0; pointer-events: none; }
 
   .card-back {
     background-color: #500724;

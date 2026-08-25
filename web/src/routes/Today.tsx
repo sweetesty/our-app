@@ -275,7 +275,7 @@ export default function Today() {
             >
               <div className={cx('flip-card min-h-[128px]', flipped && 'is-flipped')}>
                 {/* face down — tap this to turn it over */}
-                <div className="flip-face card-back grid min-h-[128px] place-items-center rounded-2xl">
+                <div className="flip-face flip-front card-back grid min-h-[128px] place-items-center rounded-2xl">
                   <div className="text-center">
                     <span className="animate-pulse-soft block text-3xl">🔒</span>
                     <span className="mt-2 block text-xs font-semibold text-rose-200">
