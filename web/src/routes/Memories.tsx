@@ -240,9 +240,11 @@ export default function Memories() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-bold text-white">🖼️ Memories</h3>
-        <div className="flex gap-2">
+        {/* Wraps rather than pushing buttons off a narrow screen — "+ Photos"
+            was disappearing on a phone. */}
+        <div className="flex flex-wrap gap-2">
           <label
             className={cx(
               'cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500',
@@ -301,11 +303,39 @@ export default function Memories() {
       </div>
 
       {album !== 'all' && (
-        <p className="rounded-xl border border-pink-500/25 bg-pink-500/10 px-3 py-2 text-xs text-pink-200">
-          Adding photos now puts them straight into{' '}
-          <span className="font-semibold">{albums.find((a) => a.id === album)?.name}</span>.
-          You can also tap any memory to file it into an album.
-        </p>
+        <div className="rounded-2xl border border-pink-500/25 bg-pink-500/10 p-3">
+          <p className="text-xs text-pink-200">
+            You're in{' '}
+            <span className="font-semibold">
+              {albums.find((a) => a.id === album)?.name}
+            </span>
+            . Anything you add lands here.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <label className="cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow">
+              {uploading ? 'Adding…' : '+ Add photos here'}
+              <input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void addPhotos(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <button
+              onClick={() => {
+                setAlbum('all')
+                setSelecting(true)
+              }}
+              className="rounded-xl border border-rose-700/40 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-200"
+            >
+              Pick from existing
+            </button>
+          </div>
+        </div>
       )}
 
       {error && <ErrorNote>{error}</ErrorNote>}
@@ -368,20 +398,35 @@ export default function Memories() {
           <p className="text-3xl">🔍</p>
           <p className="mt-2 text-sm text-white">Nothing matches those filters</p>
           <p className="mt-1 text-xs text-rose-400">
-            You have {memories.length} memor{memories.length === 1 ? 'y' : 'ies'} —
-            {album !== 'all' && ' that album is empty'}
-            {album !== 'all' && filter !== 'all' && ', and'}
-            {filter !== 'all' && ` no ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} yet`}.
+            {album !== 'all'
+              ? `This album is empty — you have ${memories.length} memor${
+                  memories.length === 1 ? 'y' : 'ies'
+                } to choose from.`
+              : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} yet.`}
           </p>
-          <button
-            onClick={() => {
-              setFilter('all')
-              setAlbum('all')
-            }}
-            className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-xs font-semibold transition hover:bg-rose-600"
-          >
-            Show everything
-          </button>
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {album !== 'all' && (
+              <button
+                onClick={() => {
+                  setAlbum('all')
+                  setSelecting(true)
+                }}
+                className="rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-2 text-xs font-semibold text-white shadow"
+              >
+                Pick memories to add
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setFilter('all')
+                setAlbum('all')
+              }}
+              className="rounded-xl bg-rose-700 px-4 py-2 text-xs font-semibold transition hover:bg-rose-600"
+            >
+              Show everything
+            </button>
+          </div>
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-rose-700/40 bg-rose-900/20 p-8 text-center">
