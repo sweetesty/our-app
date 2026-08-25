@@ -25,6 +25,36 @@ export default function AuthScreen() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
+  /** Sends a recovery link. Supabase mails it; /reset handles the return. */
+  async function sendReset() {
+    if (!email.trim()) {
+      setError('Type your email first, then tap this again.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setNotice('')
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      { redirectTo: `${window.location.origin}/reset` },
+    )
+
+    setBusy(false)
+
+    if (resetError) {
+      setError(errorMessage(resetError))
+      return
+    }
+
+    // Deliberately vague: confirming whether an address has an account here
+    // would let anyone check who is registered.
+    setNotice(
+      `If ${email.trim()} has an account, a reset link is on its way. Check spam too.`,
+    )
+  }
+
   async function signInWithGoogle() {
     setBusy(true)
     setError('')
@@ -157,6 +187,17 @@ export default function AuthScreen() {
           <Button type="submit" size="lg" loading={busy} className="w-full">
             {mode === 'signup' ? 'Create my key' : 'Let me in'}
           </Button>
+
+          {mode === 'signin' && (
+            <button
+              type="button"
+              onClick={() => void sendReset()}
+              disabled={busy}
+              className="w-full text-center text-xs text-rose-400 underline-offset-4 transition-colors hover:text-rose-200 hover:underline"
+            >
+              Forgot your password?
+            </button>
+          )}
 
           <p className="text-center text-sm text-ink-faint">
             {mode === 'signup' ? 'Already have a key?' : 'First time here?'}{' '}

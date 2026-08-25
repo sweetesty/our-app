@@ -5,6 +5,7 @@ import AppShell from './components/AppShell'
 import InstallPrompt from './components/InstallPrompt'
 import Landing from './routes/Landing'
 import AuthScreen from './routes/AuthScreen'
+import ResetPassword from './routes/ResetPassword'
 import PairScreen from './routes/PairScreen'
 import Today from './routes/Today'
 import Cards from './routes/Cards'
@@ -30,7 +31,19 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<AuthScreen />} />
+        <Route path="/reset" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )
+  }
+
+  // A recovery link signs you in before this screen renders, so /reset has to
+  // be reachable while signed in too — otherwise the redirect swallows it and
+  // the password never gets changed.
+  if (window.location.pathname === '/reset') {
+    return (
+      <Routes>
+        <Route path="/reset" element={<ResetPassword />} />
       </Routes>
     )
   }
