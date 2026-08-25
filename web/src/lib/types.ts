@@ -208,14 +208,62 @@ export type HomeSummary = {
   latest_nudge?: Nudge | null
 }
 
-/** The six buttons. Order here is the order they render in. */
-export const NUDGES: { kind: NudgeKind; emoji: string; label: string; sent: string }[] = [
-  { kind: 'miss_you', emoji: '🥺', label: 'I miss you', sent: 'misses you' },
-  { kind: 'thinking_of_you', emoji: '❤️', label: 'Thinking of you', sent: 'is thinking of you' },
-  { kind: 'need_you', emoji: '🫥', label: 'I need you', sent: 'needs you' },
-  { kind: 'kiss', emoji: '😘', label: 'Kiss me', sent: 'wants a kiss' },
-  { kind: 'annoying', emoji: '😂', label: "You're annoying me", sent: 'is a little annoyed with you' },
-  { kind: 'proud', emoji: '🫶', label: 'Proud of you', sent: 'is proud of you' },
+/**
+ * The six buttons. Order here is the order they render in.
+ *
+ * `sent` is what it reads when they sent it ("Zahir misses you"). `mine` is a
+ * separate phrasing for your own, because reusing the third-person one gave
+ * "You is proud of you" — wrong grammar and pointed at the wrong person.
+ */
+export const NUDGES: {
+  kind: NudgeKind
+  emoji: string
+  label: string
+  sent: string
+  mine: (partner: string) => string
+}[] = [
+  {
+    kind: 'miss_you',
+    emoji: '🥺',
+    label: 'I miss you',
+    sent: 'misses you',
+    mine: (p) => `You told ${p} you miss them`,
+  },
+  {
+    kind: 'thinking_of_you',
+    emoji: '❤️',
+    label: 'Thinking of you',
+    sent: 'is thinking of you',
+    mine: (p) => `You were thinking of ${p}`,
+  },
+  {
+    kind: 'need_you',
+    emoji: '🫥',
+    label: 'I need you',
+    sent: 'needs you',
+    mine: (p) => `You told ${p} you need them`,
+  },
+  {
+    kind: 'kiss',
+    emoji: '😘',
+    label: 'Kiss me',
+    sent: 'wants a kiss',
+    mine: (p) => `You asked ${p} for a kiss`,
+  },
+  {
+    kind: 'annoying',
+    emoji: '😂',
+    label: "You're annoying me",
+    sent: 'is a little annoyed with you',
+    mine: (p) => `You told ${p} they're annoying you`,
+  },
+  {
+    kind: 'proud',
+    emoji: '🫶',
+    label: 'Proud of you',
+    sent: 'is proud of you',
+    mine: (p) => `You told ${p} you're proud of them`,
+  },
 ]
 
 /** A category is only useful if it names the moment you would open the note. */

@@ -51,6 +51,26 @@ const MOOD_COPY: Record<string, { emoji: string; word: string }> = {
   missing: { emoji: '💭', word: 'like they miss you' },
 }
 
+/** Where a tapped notification should land. Set with:
+ *  supabase secrets set APP_URL="https://your-site" */
+const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/$/, '')
+
+/** Each notification type belongs on a different screen. */
+function pathFor(type: string): string {
+  switch (type) {
+    case 'vault':
+      return '/vault'
+    case 'note':
+      return '/notes'
+    case 'nudge':
+      return '/nudges'
+    case 'date':
+      return '/timeline'
+    default:
+      return '/' // answer, mood, joined
+  }
+}
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 /**
@@ -372,6 +392,21 @@ Deno.serve(async (req) => {
                 priority: 'high',
                 notification: { channel_id: 'nudges', sound: 'default' },
               },
+              // FCM displays notification-payload messages itself and its own
+              // click handler wins, so a service-worker notificationclick
+              // listener never runs. This is the documented way to route the
+              // tap, and the URL has to be absolute.
+              ...(APP_URL
+                ? {
+                    webpush: {
+                      fcm_options: { link: `${APP_URL}${pathFor(event.type)}` },
+                      notification: {
+                        icon: `${APP_URL}/pwa-192x192.png`,
+                        badge: `${APP_URL}/pwa-192x192.png`,
+                      },
+                    },
+                  }
+                : {}),
               apns: {
                 headers: { 'apns-priority': '10' },
                 payload: { aps: { sound: 'default', badge: 1 } },

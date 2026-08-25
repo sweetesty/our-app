@@ -26,31 +26,32 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? 'Our Little World'
-
-  // Mark the icon. The worker has no idea what the real count is — that lives
-  // in home_summary — so this sets a plain dot, and the app replaces it with
-  // the exact number the next time it opens and refreshes.
+/**
+ * Do NOT call showNotification here.
+ *
+ * Every message we send carries a `notification` payload, and FCM displays
+ * those itself. Showing one here as well produced two notifications for every
+ * nudge. This handler exists only to mark the app icon.
+ *
+ * Routing is handled by webpush.fcm_options.link in the send-push function —
+ * FCM owns the click for notification-payload messages, so a notificationclick
+ * listener here would never fire.
+ */
+messaging.onBackgroundMessage(() => {
+  // The worker has no idea what the real count is — that lives in home_summary
+  // — so this sets a plain dot, and the app replaces it with the exact number
+  // the next time it opens and refreshes.
   if (self.navigator && 'setAppBadge' in self.navigator) {
     self.navigator.setAppBadge().catch(() => {})
   }
-
-  self.registration.showNotification(title, {
-    body: payload.notification?.body ?? '',
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
-    // Collapses repeat nudges into one entry rather than stacking a pile of
-    // them up while the phone is in a pocket.
-    tag: payload.data?.type ?? 'nudge',
-    renotify: true,
-    data: payload.data ?? {},
-  })
 })
 
-// Tapping the notification should land on the relevant screen, reusing an
-// already-open tab rather than opening a second one.
+// Fallback only. FCM handles the click for notification-payload messages via
+// fcm_options.link; this covers the case where APP_URL is unset server-side, so
+// no link was attached and the tap would otherwise do nothing.
 self.addEventListener('notificationclick', (event) => {
+  if (event.notification.data?.FCM_MSG) return // FCM is handling it
+
   event.notification.close()
 
   const type = event.notification.data?.type
@@ -58,19 +59,18 @@ self.addEventListener('notificationclick', (event) => {
     type === 'vault' ? '/vault'
     : type === 'note' ? '/notes'
     : type === 'nudge' ? '/nudges'
-    : '/'   // answer, mood and joined all belong on Today
+    : type === 'date' ? '/timeline'
+    : '/'
 
   event.waitUntil(
-    clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((windowClients) => {
-        for (const client of windowClients) {
-          if ('focus' in client) {
-            client.navigate(path)
-            return client.focus()
-          }
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          client.navigate(new URL(path, self.location.origin).href)
+          return client.focus()
         }
-        return clients.openWindow(path)
-      }),
+      }
+      return clients.openWindow(new URL(path, self.location.origin).href)
+    }),
   )
 })

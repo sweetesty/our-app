@@ -20,7 +20,10 @@ const NAV = [
 export default function AppShell({ children }: { children: ReactNode }) {
   const { summary } = useSession()
   const couple = summary?.couple
-  const together = daysSince(couple?.anniversary) ?? 0
+  // The header said "Streak" but showed days-since-anniversary, which is a
+  // different number entirely — and read as 0 for anyone who never set one.
+  const streak = summary?.stats?.current_streak ?? 0
+  const together = daysSince(couple?.anniversary)
 
   return (
     <div className="min-h-dvh flex flex-col text-rose-50 selection:bg-rose-500 selection:text-white">
@@ -38,7 +41,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2 bg-rose-950/60 border border-rose-700/50 px-3 py-1.5 rounded-full">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
           <span className="text-xs font-medium text-rose-200">
-            Streak: <strong className="text-white">{together}</strong> Days 🔥
+            {streak > 0 ? (
+              <>
+                Streak: <strong className="text-white">{streak}</strong> Days 🔥
+              </>
+            ) : together !== null ? (
+              <>
+                <strong className="text-white">{together.toLocaleString()}</strong> Days
+                together 💗
+              </>
+            ) : (
+              <>Just the two of you 💗</>
+            )}
           </span>
         </div>
       </header>

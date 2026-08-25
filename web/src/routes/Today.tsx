@@ -19,6 +19,7 @@ export default function Today() {
 
   // Quick signals state
   const [pokeSent, setPokeSent] = useState('')
+  const [pokeNote, setPokeNote] = useState('')
 
   // The reveal. `justRevealed` drives the celebration, and it must only fire on
   // a live unlock — opening a question you already revealed yesterday should
@@ -121,10 +122,26 @@ export default function Today() {
     setSaving(false)
   }
 
-  async function sendPoke(msg: string, kind: string) {
-    await supabase.rpc('send_nudge', { nudge_kind: kind, note: msg })
-    setPokeSent(`Signal Sent: "${msg}" 💌 Partner notified!`)
-    setTimeout(() => { setPokeSent('') }, 3500)
+  async function sendPoke(label: string, kind: string) {
+    // The note is whatever you typed, if anything — not a copy of the button
+    // label. Echoing the label back made every nudge arrive with a redundant
+    // second line saying the same thing.
+    const extra = pokeNote.trim()
+
+    const { error: rpcError } = await supabase.rpc('send_nudge', {
+      nudge_kind: kind,
+      note: extra || null,
+    })
+
+    if (rpcError) {
+      setPokeSent(`Couldn't send — ${rpcError.message}`)
+      setTimeout(() => setPokeSent(''), 4000)
+      return
+    }
+
+    setPokeNote('')
+    setPokeSent(extra ? `Sent: ${label} — "${extra}" 💌` : `Sent: ${label} 💌`)
+    setTimeout(() => setPokeSent(''), 3500)
     await refresh()
   }
 
@@ -147,16 +164,34 @@ export default function Today() {
       {/* Quick Signals */}
       <div className="bg-rose-900/30 border border-rose-700/30 rounded-3xl p-5 shadow-xl">
         <h3 className="text-xs font-bold tracking-wider text-rose-300 uppercase mb-3">⚡ Quick Signals</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <button onClick={() => sendPoke('I Miss You 🥺', 'miss_you')}
-            className="p-3 bg-rose-800/40 hover:bg-rose-700/50 border border-rose-600/30 rounded-2xl text-xs font-semibold transition text-center text-rose-100">🥺 I Miss You</button>
-          <button onClick={() => sendPoke('Thinking of you ❤️', 'thinking')}
-            className="p-3 bg-rose-800/40 hover:bg-rose-700/50 border border-rose-600/30 rounded-2xl text-xs font-semibold transition text-center text-rose-100">❤️ Thinking of You</button>
-          <button onClick={() => sendPoke('Need you 🫂', 'need_you')}
-            className="p-3 bg-rose-800/40 hover:bg-rose-700/50 border border-rose-600/30 rounded-2xl text-xs font-semibold transition text-center text-rose-100">🫂 Need You</button>
-          <button onClick={() => sendPoke('Kiss me 😘', 'kiss')}
-            className="p-3 bg-rose-800/40 hover:bg-rose-700/50 border border-rose-600/30 rounded-2xl text-xs font-semibold transition text-center text-rose-100">😘 Kiss Me</button>
+        {/* Kinds must match the check constraint in 0002_features.sql exactly —
+            'thinking' was rejected by the database and that button never worked. */}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {[
+            { kind: 'miss_you', label: '🥺 I Miss You' },
+            { kind: 'thinking_of_you', label: '❤️ Thinking of You' },
+            { kind: 'need_you', label: '🫂 Need You' },
+            { kind: 'kiss', label: '😘 Kiss Me' },
+            { kind: 'proud', label: '🫶 Proud of You' },
+            { kind: 'annoying', label: "😂 You're Annoying" },
+          ].map((n) => (
+            <button
+              key={n.kind}
+              onClick={() => void sendPoke(n.label, n.kind)}
+              className="rounded-2xl border border-rose-600/30 bg-rose-800/40 p-3 text-center text-xs font-semibold text-rose-100 transition hover:bg-rose-700/50"
+            >
+              {n.label}
+            </button>
+          ))}
         </div>
+
+        <input
+          value={pokeNote}
+          onChange={(e) => setPokeNote(e.target.value)}
+          maxLength={140}
+          placeholder="Say something with it… (optional)"
+          className="mt-2.5 w-full rounded-xl border border-rose-700/40 bg-rose-950/50 px-3 py-2 text-xs text-rose-100 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
+        />
         {pokeSent && (
           <div className="mt-3 text-center text-xs bg-pink-500/20 border border-pink-500/40 py-2 rounded-xl text-pink-200 animate-bounce">
             {pokeSent}

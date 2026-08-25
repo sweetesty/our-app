@@ -142,10 +142,18 @@ export default function Nudges() {
                   className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-surface/40"
                 >
                   <span className="text-lg">{meta?.emoji}</span>
-                  <span className="min-w-0 flex-1 truncate text-ink-muted">
-                    <span className="text-ink-soft">{mine ? 'You' : partnerName}</span>{' '}
-                    <span className="text-ink-muted">{meta?.sent}</span>
-                    {n.message && <span className="text-ink-faint"> — “{n.message}”</span>}
+                  <span className="min-w-0 flex-1 truncate text-rose-300">
+                    {mine ? (
+                      <span className="text-rose-200">
+                        {meta?.mine(partnerName) ?? `You nudged ${partnerName}`}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-white">{partnerName}</span>{' '}
+                        <span>{meta?.sent}</span>
+                      </>
+                    )}
+                    {n.message && <span className="text-rose-400"> — “{n.message}”</span>}
                   </span>
                   <span className="shrink-0 text-xs text-ink-faint">{ago(n.created_at)}</span>
                 </li>
