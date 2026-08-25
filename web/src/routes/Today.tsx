@@ -3,6 +3,8 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading } from '../components/ui'
 import { celebrateReveal } from '../lib/celebrate'
+import NotificationPrompt from '../components/NotificationPrompt'
+import MoodCheckin from '../components/MoodCheckin'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
 
 export default function Today() {
@@ -136,7 +138,12 @@ export default function Today() {
 
   return (
     <div className="space-y-6">
-      
+      {/* Asked here rather than on load: a permission dialog nobody invited
+          gets dismissed, and a dismissal is close to permanent. */}
+      <NotificationPrompt />
+
+      <MoodCheckin />
+
       {/* Quick Signals */}
       <div className="bg-rose-900/30 border border-rose-700/30 rounded-3xl p-5 shadow-xl">
         <h3 className="text-xs font-bold tracking-wider text-rose-300 uppercase mb-3">⚡ Quick Signals</h3>
