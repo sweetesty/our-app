@@ -9,7 +9,7 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { disablePush } from '../lib/push'
+import { disablePush, refreshPushRegistration } from '../lib/push'
 import { badgeCountFrom, clearBadge, setBadge } from '../lib/badge'
 import type { HomeSummary } from '../lib/types'
 
@@ -49,6 +49,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // Keep the icon badge in step with every refresh, so it clears the moment
     // a note is read rather than lingering until the next launch.
     void setBadge(badgeCountFrom(next))
+
+    // Re-register this device for push.
+    //
+    // Signing out deletes the token, so a shared phone stops receiving the
+    // previous person's nudges. But nothing re-registered on the way back in —
+    // it only happened when someone opened Settings — so after any sign-out,
+    // or a password reset, notifications silently stopped and nothing said so.
+    //
+    // Safe to call on every load: it returns immediately unless permission has
+    // already been granted, so it never triggers a prompt on its own.
+    void refreshPushRegistration()
   }, [])
 
   useEffect(() => {
