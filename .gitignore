@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Secrets. Nothing here should ever reach a remote.
+# ---------------------------------------------------------------------------
+
+# Supabase / Vite env files (the .example versions ARE committed)
+.env
+.env.*
+!.env.example
+!.env.example.json
+
+# Firebase
+**/google-services.json
+**/GoogleService-Info.plist
+**/*firebase-adminsdk*.json
+**/*.b64.txt
+
+# Service account keys of any flavour
+**/service-account*.json
+*.pem
+*.p8
+*.p12
+*.keystore
+*.jks
+
+# ---------------------------------------------------------------------------
+# Tooling scratch
+# ---------------------------------------------------------------------------
+
+# Supabase CLI local state. Holds the linked project ref and a pooler URL —
+# not secret, but machine-specific and pure noise in a diff.
+supabase/.temp/
+supabase/.branches/
+
+node_modules/
+dist/
+build/
+# vite-plugin-pwa writes a service worker here when running `npm run dev`
+web/dev-dist/
+.DS_Store
+*.log
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+mobile/build/
+mobile/.idea/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/

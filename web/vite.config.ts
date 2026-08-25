@@ -41,6 +41,10 @@ export default defineConfig({
         // Router takes it from there.
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2}'],
+        // The FCM worker is a second, independently-registered service worker.
+        // Precaching it here would pin a stale copy and stop push updates
+        // reaching the browser.
+        globIgnores: ['**/firebase-messaging-sw.js'],
 
         runtimeCaching: [
           {

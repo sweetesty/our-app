@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useSession } from './context/SessionProvider'
 import { Loading } from './components/ui'
 import AppShell from './components/AppShell'
+import InstallPrompt from './components/InstallPrompt'
 import Landing from './routes/Landing'
 import AuthScreen from './routes/AuthScreen'
 import PairScreen from './routes/PairScreen'
@@ -45,6 +46,7 @@ export default function App() {
 
   return (
     <AppShell>
+      <InstallPrompt />
       <Routes>
         <Route path="/" element={<Today />} />
         <Route path="/cards" element={<Cards />} />

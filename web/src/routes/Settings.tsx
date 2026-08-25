@@ -2,6 +2,7 @@
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { Avatar, Button, ErrorNote, Field, Input, PageHeader } from '../components/ui'
+import PushToggle from '../components/PushToggle'
 
 export default function Settings() {
   const { summary, userId, refresh, signOut } = useSession()
@@ -119,6 +120,14 @@ export default function Settings() {
               </button>
             </>
           )}
+        </section>
+
+        <section className="surface space-y-3 p-6">
+          <h2 className="label">Notifications</h2>
+          <p className="text-xs leading-relaxed text-rose-300">
+            So a nudge reaches you even when this isn't open.
+          </p>
+          <PushToggle />
         </section>
 
         <section className="surface space-y-3 p-6">

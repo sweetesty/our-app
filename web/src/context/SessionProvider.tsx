@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { disablePush } from '../lib/push'
 import type { HomeSummary } from '../lib/types'
 
 type SessionValue = {
@@ -70,6 +71,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const signOut = useCallback(async () => {
+    // Drop the push token first: afterwards the RPC has no auth context, and
+    // the row would be left behind sending this person's nudges to whoever
+    // signs in next on this device.
+    await disablePush()
     await supabase.auth.signOut()
     setSummary(null)
   }, [])
