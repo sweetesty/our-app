@@ -13,6 +13,19 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState('')
+
+  /** Undo a solo space so you can join your partner's instead. The RPC refuses
+   *  once they have joined, so this can never orphan a shared space. */
+  async function leave() {
+    setLeaving(true)
+    setLeaveError('')
+    const { error: rpcError } = await supabase.rpc('leave_couple')
+    setLeaving(false)
+    if (rpcError) return setLeaveError(errorMessage(rpcError))
+    await refresh()
+  }
 
   useEffect(() => {
     setDisplayName(summary?.me?.display_name ?? '')
@@ -118,6 +131,19 @@ export default function Settings() {
                   {copied ? 'copied ✓' : 'tap to copy'}
                 </span>
               </button>
+
+              {/* Only reachable while you are alone in here. Once someone has
+                  joined, leave_couple() refuses and this disappears — you
+                  cannot walk out of a shared space by accident. */}
+              <div className="border-t border-rose-800/50 pt-4">
+                <p className="mb-2 text-xs leading-relaxed text-rose-300">
+                  Made this by mistake, and actually have <em>their</em> code?
+                </p>
+                {leaveError && <ErrorNote>{leaveError}</ErrorNote>}
+                <Button variant="ghost" size="sm" loading={leaving} onClick={() => void leave()}>
+                  Leave and join theirs instead
+                </Button>
+              </div>
             </>
           )}
         </section>
