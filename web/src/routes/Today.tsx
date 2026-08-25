@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading } from '../components/ui'
+import { celebrateReveal } from '../lib/celebrate'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
 
 export default function Today() {
@@ -21,27 +22,43 @@ export default function Today() {
   // a live unlock — opening a question you already revealed yesterday should
   // not throw hearts at you.
   const [justRevealed, setJustRevealed] = useState(false)
+  const [flipped, setFlipped] = useState(false)
   const wasRevealed = useRef(false)
   const seenFirstLoad = useRef(false)
+  const revealCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (loading) return
     const revealed = question?.revealed ?? false
 
+    // First paint of the session: adopt whatever state we are in without any
+    // celebration. Opening a question you unlocked yesterday should be quiet.
     if (!seenFirstLoad.current) {
       seenFirstLoad.current = true
       wasRevealed.current = revealed
+      setFlipped(revealed)
       return
     }
 
     if (revealed && !wasRevealed.current) {
-      setJustRevealed(true)
-      const timer = setTimeout(() => setJustRevealed(false), 2600)
       wasRevealed.current = revealed
-      return () => clearTimeout(timer)
+      setJustRevealed(true)
+
+      // Let the sealed face land, turn the card, then fire the confetti at the
+      // moment the answer is actually readable rather than before it.
+      const flip = setTimeout(() => setFlipped(true), 420)
+      const burst = setTimeout(() => celebrateReveal(revealCardRef.current), 900)
+      const done = setTimeout(() => setJustRevealed(false), 3200)
+
+      return () => {
+        clearTimeout(flip)
+        clearTimeout(burst)
+        clearTimeout(done)
+      }
     }
 
     wasRevealed.current = revealed
+    if (revealed) setFlipped(true)
   }, [loading, question?.revealed])
 
   const load = useCallback(async () => {
@@ -188,50 +205,25 @@ export default function Today() {
               <p className="text-sm text-rose-100 whitespace-pre-wrap">{mine!.body}</p>
             </div>
 
-            {/* Their answer. The unseal plays whenever this mounts — which is
-                exactly the first render after the second answer lands. */}
-            <div className="relative">
-              {justRevealed && (
-                <>
-                  {/* the seal giving way */}
-                  <span
-                    aria-hidden
-                    className="animate-seal-break pointer-events-none absolute -top-3 left-1/2 z-20 -translate-x-1/2 text-3xl"
-                  >
-                    🔒
-                  </span>
+            {/* Their answer, as a card that turns over. On a live reveal it
+                starts face-down and flips; opening a question you already
+                revealed just shows the face, with no theatre. */}
+            <div ref={revealCardRef} className="flip-scene">
+              <div className={cx('flip-card min-h-[104px]', flipped && 'is-flipped')}>
+                {/* face down — the sealed side */}
+                <div className="flip-face card-back grid min-h-[104px] place-items-center rounded-2xl">
+                  <span className="text-3xl">🔒</span>
+                </div>
 
-                  {/* hearts drifting off it */}
-                  {[
-                    { left: '12%', delay: '0.25s', spin: '-18deg', ch: '💗' },
-                    { left: '34%', delay: '0.45s', spin: '14deg', ch: '❤️' },
-                    { left: '58%', delay: '0.15s', spin: '22deg', ch: '💕' },
-                    { left: '78%', delay: '0.55s', spin: '-12deg', ch: '💗' },
-                    { left: '90%', delay: '0.35s', spin: '10deg', ch: '✨' },
-                  ].map((h) => (
-                    <span
-                      key={h.left}
-                      aria-hidden
-                      className="animate-drift-up pointer-events-none absolute top-0 z-20 text-xl"
-                      style={{
-                        left: h.left,
-                        animationDelay: h.delay,
-                        ['--spin' as string]: h.spin,
-                      }}
-                    >
-                      {h.ch}
-                    </span>
-                  ))}
-                </>
-              )}
-
-              <div className="animate-unseal p-4 bg-pink-950/40 border border-pink-800/40 rounded-2xl">
-                <p className="text-xs text-rose-400 font-semibold mb-1">
-                  {partnerName}'s Answer:
-                </p>
-                <p className="text-sm text-pink-100 italic whitespace-pre-wrap">
-                  "{theirs!.body}"
-                </p>
+                {/* face up — what they wrote */}
+                <div className="flip-face flip-back rounded-2xl border border-pink-800/40 bg-pink-950/40 p-4">
+                  <p className="mb-1 text-xs font-semibold text-rose-400">
+                    {partnerName}'s Answer:
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap text-pink-100 italic">
+                    "{theirs!.body}"
+                  </p>
+                </div>
               </div>
             </div>
 
