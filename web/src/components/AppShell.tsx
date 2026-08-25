@@ -48,19 +48,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-2 bg-rose-950/60 border border-rose-700/50 px-3 py-1.5 rounded-full">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-          <span className="text-xs font-medium text-rose-200">
-            {streak > 0 ? (
-              <>
-                Streak: <strong className="text-white">{streak}</strong> Days 🔥
-              </>
-            ) : together !== null ? (
-              <>
-                <strong className="text-white">{together.toLocaleString()}</strong> Days
-                together 💗
-              </>
-            ) : (
-              <>Just the two of you 💗</>
+          {/* Two different numbers were sharing one label. Days together is the
+              relationship; the streak is only consecutive days you have both
+              answered — so "Streak: 1" next to a 37-day relationship read as
+              though the app had forgotten. Show both, labelled. */}
+          <span className="flex items-center gap-2 text-xs font-medium text-rose-200">
+            {together !== null && (
+              <span>
+                <strong className="text-white">{together.toLocaleString()}</strong> days 💗
+              </span>
             )}
+            {together !== null && streak > 0 && (
+              <span aria-hidden className="text-rose-700">
+                |
+              </span>
+            )}
+            {streak > 0 && (
+              <span title="Days you've both answered in a row">
+                <strong className="text-white">{streak}</strong> 🔥
+              </span>
+            )}
+            {together === null && streak === 0 && <span>Just the two of you 💗</span>}
           </span>
         </div>
       </header>
