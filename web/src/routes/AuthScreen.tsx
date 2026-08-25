@@ -4,6 +4,18 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { Button, ErrorNote, Field, Input } from '../components/ui'
 import { LogoLockup } from '../components/Logo'
 
+/** Google's mark, inlined so it does not depend on a CDN the CSP may block. */
+function GoogleGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.2 5.3-4.7 6.9l7.3 5.7c4.3-3.9 6.8-9.8 6.8-17.1z" />
+      <path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.8-6.1z" />
+      <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.3 0-11.7-3.7-13.6-9.1l-7.8 6.1C6.5 42.6 14.6 48 24 48z" />
+    </svg>
+  )
+}
+
 export default function AuthScreen() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [displayName, setDisplayName] = useState('')
@@ -12,6 +24,31 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  async function signInWithGoogle() {
+    setBusy(true)
+    setError('')
+    setNotice('')
+
+    // Supabase handles the round trip; the client is configured with
+    // detectSessionInUrl, so the session is picked up when Google sends the
+    // browser back here and SessionProvider routes onward from there.
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        // Always show the account chooser. Without this, a shared laptop
+        // silently signs the second person in as the first.
+        queryParams: { prompt: 'select_account' },
+      },
+    })
+
+    if (oauthError) {
+      setError(errorMessage(oauthError))
+      setBusy(false)
+    }
+    // On success the page navigates away, so there is no busy state to clear.
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -56,6 +93,24 @@ export default function AuthScreen() {
             No profiles, no followers, no feed —
             <br className="hidden sm:block" /> just the two of you and everything you leave here.
           </p>
+        </div>
+
+        <div className="surface mb-4 space-y-4 p-6">
+          <button
+            type="button"
+            onClick={() => void signInWithGoogle()}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-rose-950 transition hover:bg-rose-50 disabled:opacity-60"
+          >
+            <GoogleGlyph />
+            Continue with Google
+          </button>
+
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-rose-800/50" />
+            <span className="text-xs text-rose-400">or use an email</span>
+            <span className="h-px flex-1 bg-rose-800/50" />
+          </div>
         </div>
 
         <form onSubmit={submit} className="surface space-y-5 p-6">
