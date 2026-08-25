@@ -29,6 +29,13 @@ const messaging = firebase.messaging()
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title ?? 'Our Little World'
 
+  // Mark the icon. The worker has no idea what the real count is — that lives
+  // in home_summary — so this sets a plain dot, and the app replaces it with
+  // the exact number the next time it opens and refreshes.
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge().catch(() => {})
+  }
+
   self.registration.showNotification(title, {
     body: payload.notification?.body ?? '',
     icon: '/pwa-192x192.png',

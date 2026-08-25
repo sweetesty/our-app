@@ -10,6 +10,7 @@ import {
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { disablePush } from '../lib/push'
+import { badgeCountFrom, clearBadge, setBadge } from '../lib/badge'
 import type { HomeSummary } from '../lib/types'
 
 type SessionValue = {
@@ -42,7 +43,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSummary({ paired: false })
       return
     }
-    setSummary(data as HomeSummary)
+    const next = data as HomeSummary
+    setSummary(next)
+
+    // Keep the icon badge in step with every refresh, so it clears the moment
+    // a note is read rather than lingering until the next launch.
+    void setBadge(badgeCountFrom(next))
   }, [])
 
   useEffect(() => {
@@ -75,6 +81,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // the row would be left behind sending this person's nudges to whoever
     // signs in next on this device.
     await disablePush()
+    await clearBadge()
     await supabase.auth.signOut()
     setSummary(null)
   }, [])
