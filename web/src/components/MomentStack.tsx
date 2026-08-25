@@ -189,13 +189,15 @@ export default function MomentStack() {
               }px)`,
             }}
           >
-            {urls[next.storage_path] && (
-              <img
-                src={urls[next.storage_path]}
-                alt=""
-                className="aspect-square w-full object-cover opacity-50"
-              />
-            )}
+            <div className="relative w-full overflow-hidden pt-[100%]">
+              {urls[next.storage_path] && (
+                <img
+                  src={urls[next.storage_path]}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-50"
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -221,17 +223,22 @@ export default function MomentStack() {
             cursor: dragging ? 'grabbing' : 'grab',
           }}
         >
-          {urls[current.storage_path] ? (
-            <img
-              src={urls[current.storage_path]}
-              alt={current.caption ?? ''}
-              draggable={false}
-              onClick={() => !dx && setFullscreen(current)}
-              className="aspect-square w-full object-cover"
-            />
-          ) : (
-            <div className="grid aspect-square w-full place-items-center text-4xl">📸</div>
-          )}
+          {/* A square box with the image absolutely filling it. Relying on
+              aspect-square plus object-cover on the img itself left a tall gap
+              under wide photos, because the element kept its natural ratio. */}
+          <div className="relative w-full overflow-hidden bg-rose-950/60 pt-[100%]">
+            {urls[current.storage_path] ? (
+              <img
+                src={urls[current.storage_path]}
+                alt={current.caption ?? ''}
+                draggable={false}
+                onClick={() => !dx && setFullscreen(current)}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 grid place-items-center text-4xl">📸</div>
+            )}
+          </div>
 
           <div className="space-y-2 p-4">
             {current.caption && (

@@ -4,7 +4,15 @@ import { cx } from './ui'
 
 export type ReactionRow = { emoji: string; mine: boolean }
 
-export const REACTION_SET = ['❤️', '😂', '🥺', '😘', '🔥', '👏'] as const
+/**
+ * The first three double as the one-tap buttons on a moment card, so the ones
+ * you reach for most come first.
+ */
+export const REACTION_SET = [
+  '❤️', '😂', '🥺', '😘', '🔥', '👏',
+  '🥰', '😍', '🤣', '😭', '🙌', '💯',
+  '🫶', '💗', '✨', '😳', '🤤', '😮',
+] as const
 
 /**
  * Reactions on any piece of content.
@@ -92,12 +100,15 @@ export default function Reactions({
               onClick={() => setOpen(false)}
               className="fixed inset-0 z-40 cursor-default"
             />
-            <div className="absolute bottom-full left-0 z-50 mb-2 flex gap-1 rounded-2xl border border-rose-700/50 bg-rose-950/95 p-2 shadow-2xl backdrop-blur">
+            {/* Right-aligned and width-capped: the trigger sits at the end of a
+                row, so a left-anchored popup ran off the screen edge and half
+                the emoji were unreachable. */}
+            <div className="absolute right-0 bottom-full z-50 mb-2 grid w-max max-w-[min(19rem,calc(100vw-2.5rem))] grid-cols-6 gap-0.5 rounded-2xl border border-rose-700/50 bg-rose-950/95 p-2 shadow-2xl backdrop-blur">
               {REACTION_SET.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => void toggle(emoji)}
-                  className="rounded-lg px-1.5 py-1 text-xl transition hover:scale-125"
+                  className="rounded-lg p-1.5 text-xl transition hover:scale-125 active:scale-95"
                 >
                   {emoji}
                 </button>
