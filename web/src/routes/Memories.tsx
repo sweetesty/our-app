@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading, Modal } from '../components/ui'
 import { signedUrls, uploadMedia } from '../lib/media'
+import ReorderableGrid from '../components/ReorderableGrid'
 import { when } from '../lib/format'
 
 type Memory = {
@@ -17,7 +18,7 @@ type Memory = {
 }
 
 type Album = { id: string; name: string; icon: string }
-type AlbumItem = { album_id: string; memory_id: string }
+type AlbumItem = { album_id: string; memory_id: string; sort_order?: number }
 
 const FILTERS = [
   { key: 'all', label: 'Everything', icon: '🖼️' },
@@ -45,12 +46,78 @@ export default function Memories() {
   const [error, setError] = useState('')
   const [viewing, setViewing] = useState<Memory | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const [manualOrder, setManualOrder] = useState<string[]>([])
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  /**
+   * File everything selected into an album at once.
+   *
+   * Filing was possible one photo at a time, three taps deep in the detail
+   * view — which nobody would do for twenty holiday photos, so everything
+   * stayed in "All memories" and the albums sat empty.
+   */
+  async function fileSelected(albumId: string) {
+    if (selected.size === 0) return
+    setError('')
+
+    const rows = [...selected].map((memoryId) => ({
+      album_id: albumId,
+      memory_id: memoryId,
+      memory_kind: memories.find((m) => m.id === memoryId)?.kind ?? 'photo',
+    }))
+
+    // Re-filing something already in the album should be harmless, not an error.
+    const { error: insertError } = await supabase
+      .from('album_items')
+      .upsert(rows, { onConflict: 'album_id,memory_id', ignoreDuplicates: true })
+
+    if (insertError) {
+      setError(errorMessage(insertError))
+      return
+    }
+
+    setSelected(new Set())
+    setSelecting(false)
+    await load()
+  }
+
+  /**
+   * Photos keep their album order; "Everything" stays newest-first.
+   *
+   * An album reads in the order it happened — a trip, a birthday — and the
+   * picture you want first is rarely the last one uploaded. The full gallery
+   * has no such story, so chronology is the right default there.
+   */
+  async function saveOrder(next: Memory[]) {
+    setManualOrder(next.map((m) => m.id))
+
+    if (album === 'all') return // nothing to persist; everything is by date
+
+    const { error: rpcError } = await supabase.rpc('reorder_album_items', {
+      album,
+      memory_ids: next.map((m) => m.id),
+    })
+
+    if (rpcError) setError(errorMessage(rpcError))
+    else await load()
+  }
 
   const load = useCallback(async () => {
     const [{ data: mem, error: memErr }, { data: alb }, { data: it }] = await Promise.all([
       supabase.rpc('memories', { kinds: null, limit_count: 300 }),
       supabase.from('albums').select('id, name, icon').order('created_at'),
-      supabase.from('album_items').select('album_id, memory_id'),
+      supabase.from('album_items').select('album_id, memory_id, sort_order'),
     ])
 
     if (memErr) {
@@ -75,14 +142,25 @@ export default function Memories() {
   }, [load])
 
   const visible = useMemo(() => {
-    return memories.filter((m) => {
+    const list = memories.filter((m) => {
       if (filter !== 'all' && m.kind !== filter) return false
       if (album !== 'all') {
         return items.some((i) => i.album_id === album && i.memory_id === m.id)
       }
       return true
     })
-  }, [memories, items, filter, album])
+
+    // Inside an album, respect the saved order. Outside it, newest first.
+    if (album === 'all') return list
+
+    const rank = new Map(
+      items
+        .filter((i) => i.album_id === album)
+        .map((i) => [i.memory_id, i.sort_order ?? 100]),
+    )
+
+    return [...list].sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999))
+  }, [memories, items, filter, album, manualOrder])
 
   async function toggleInAlbum(memory: Memory, albumId: string) {
     const already = items.some((i) => i.album_id === albumId && i.memory_id === memory.id)
@@ -182,6 +260,36 @@ export default function Memories() {
               }}
             />
           </label>
+          {visible.length > 0 && (
+            <button
+              onClick={() => {
+                setSelecting((v) => !v)
+                setSelected(new Set())
+                setReordering(false)
+              }}
+              className={cx(
+                'rounded-xl px-3 py-1.5 text-xs font-semibold transition',
+                selecting
+                  ? 'bg-pink-600 text-white'
+                  : 'border border-rose-700/40 bg-rose-900/40 text-rose-200 hover:bg-rose-900',
+              )}
+            >
+              {selecting ? 'Cancel' : '☑ Select'}
+            </button>
+          )}
+          {album !== 'all' && visible.length > 1 && !selecting && (
+            <button
+              onClick={() => setReordering((v) => !v)}
+              className={cx(
+                'rounded-xl px-3 py-1.5 text-xs font-semibold transition',
+                reordering
+                  ? 'bg-pink-600 text-white'
+                  : 'border border-rose-700/40 bg-rose-900/40 text-rose-200 hover:bg-rose-900',
+              )}
+            >
+              {reordering ? 'Done' : '↕ Arrange'}
+            </button>
+          )}
           <button
             onClick={() => void newAlbum()}
             className="rounded-xl border border-rose-700/40 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-900"
@@ -280,13 +388,38 @@ export default function Memories() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {visible.map((m) => (
+        <ReorderableGrid
+          items={visible}
+          active={reordering}
+          getKey={(m) => `${m.source}-${m.id}`}
+          onReorder={(next) => void saveOrder(next)}
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          renderItem={(m) => (
             <button
-              key={`${m.source}-${m.id}`}
-              onClick={() => setViewing(m)}
-              className="group relative aspect-square overflow-hidden rounded-2xl border border-rose-700/40 bg-rose-900/40 text-left"
+              onClick={() => {
+                if (reordering) return
+                if (selecting) toggleSelected(m.id)
+                else setViewing(m)
+              }}
+              className={cx(
+                'group relative aspect-square w-full overflow-hidden rounded-2xl border bg-rose-900/40 text-left transition',
+                selected.has(m.id)
+                  ? 'border-pink-400 ring-2 ring-pink-400'
+                  : 'border-rose-700/40',
+              )}
             >
+              {selecting && (
+                <span
+                  className={cx(
+                    'absolute top-2 right-2 z-10 grid size-6 place-items-center rounded-full border-2 text-xs font-bold',
+                    selected.has(m.id)
+                      ? 'border-pink-400 bg-pink-500 text-white'
+                      : 'border-white/70 bg-black/40 text-transparent',
+                  )}
+                >
+                  ✓
+                </span>
+              )}
               {m.media_path && urls[m.media_path] && m.kind === 'photo' ? (
                 <img
                   src={urls[m.media_path]}
@@ -309,7 +442,36 @@ export default function Memories() {
                 {m.source}
               </span>
             </button>
-          ))}
+          )}
+        />
+      )}
+
+      {/* Sticky picker while selecting — pick photos, then tap an album. */}
+      {selecting && selected.size > 0 && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 border-t border-rose-700/50 bg-rose-950/95 p-4 backdrop-blur"
+          style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
+        >
+          <p className="mb-2 text-xs font-semibold text-white">
+            Put {selected.size} {selected.size === 1 ? 'memory' : 'memories'} into…
+          </p>
+          <div className="scrollbar-none flex gap-2 overflow-x-auto">
+            {albums.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => void fileSelected(a.id)}
+                className="shrink-0 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3.5 py-2 text-xs font-semibold whitespace-nowrap text-white shadow"
+              >
+                {a.icon} {a.name}
+              </button>
+            ))}
+            <button
+              onClick={() => void newAlbum()}
+              className="shrink-0 rounded-xl border border-rose-700/50 px-3.5 py-2 text-xs font-semibold whitespace-nowrap text-rose-300"
+            >
+              + New album
+            </button>
+          </div>
         </div>
       )}
 
