@@ -10,6 +10,7 @@ import Today from './routes/Today'
 import Cards from './routes/Cards'
 import Notes from './routes/Notes'
 import Timeline from './routes/Timeline'
+import Memories from './routes/Memories'
 import Vault from './routes/Vault'
 import Nudges from './routes/Nudges'
 import Us from './routes/Us'
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/cards" element={<Cards />} />
         <Route path="/notes" element={<Notes />} />
         <Route path="/timeline" element={<Timeline />} />
+        <Route path="/memories" element={<Memories />} />
         <Route path="/vault" element={<Vault />} />
         <Route path="/nudges" element={<Nudges />} />
         <Route path="/us" element={<Us />} />
