@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading, Modal } from '../components/ui'
-import { signedUrls } from '../lib/media'
+import { signedUrls, uploadMedia } from '../lib/media'
 import { when } from '../lib/format'
 
 type Memory = {
@@ -34,7 +34,7 @@ const FILTERS = [
  * its photos from here for free.
  */
 export default function Memories() {
-  const { coupleId } = useSession()
+  const { coupleId, userId } = useSession()
   const [memories, setMemories] = useState<Memory[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
   const [items, setItems] = useState<AlbumItem[]>([])
@@ -44,6 +44,7 @@ export default function Memories() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewing, setViewing] = useState<Memory | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const load = useCallback(async () => {
     const [{ data: mem, error: memErr }, { data: alb }, { data: it }] = await Promise.all([
@@ -107,19 +108,96 @@ export default function Memories() {
     await load()
   }
 
+  /**
+   * Add photos straight from the gallery.
+   *
+   * Memories was read-only — it only gathered what other screens made, so a
+   * photo of a day out had nowhere to go and an album you created could never
+   * be filled. Uploads become moments, which keeps the one-photo-one-flow rule
+   * rather than adding a second photo store, and they drop into whichever
+   * album is open.
+   */
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length || !coupleId || !userId) return
+
+    setUploading(true)
+    setError('')
+
+    try {
+      for (const file of Array.from(files)) {
+        const uploaded = await uploadMedia(coupleId, 'moments', file)
+
+        const { data: created, error: insertError } = await supabase
+          .from('moments')
+          .insert({
+            couple_id: coupleId,
+            author_id: userId,
+            storage_path: uploaded.path,
+            media_type: uploaded.mediaType === 'video' ? 'video' : 'photo',
+          })
+          .select('id')
+          .single()
+
+        if (insertError) throw insertError
+
+        if (album !== 'all' && created) {
+          await supabase.from('album_items').insert({
+            album_id: album,
+            memory_id: created.id,
+            memory_kind: 'photo',
+          })
+        }
+      }
+
+      await load()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) return <Loading label="Gathering everything…" />
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-lg font-bold text-white">🖼️ Memories</h3>
-        <button
-          onClick={() => void newAlbum()}
-          className="rounded-xl bg-rose-700 px-3 py-1.5 text-xs font-semibold shadow transition hover:bg-rose-600"
-        >
-          + Album
-        </button>
+        <div className="flex gap-2">
+          <label
+            className={cx(
+              'cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500',
+              uploading && 'pointer-events-none opacity-60',
+            )}
+          >
+            {uploading ? 'Adding…' : '+ Photos'}
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void addPhotos(e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </label>
+          <button
+            onClick={() => void newAlbum()}
+            className="rounded-xl border border-rose-700/40 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-900"
+          >
+            + Album
+          </button>
+        </div>
       </div>
+
+      {album !== 'all' && (
+        <p className="rounded-xl border border-pink-500/25 bg-pink-500/10 px-3 py-2 text-xs text-pink-200">
+          Adding photos now puts them straight into{' '}
+          <span className="font-semibold">{albums.find((a) => a.id === album)?.name}</span>.
+          You can also tap any memory to file it into an album.
+        </p>
+      )}
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
