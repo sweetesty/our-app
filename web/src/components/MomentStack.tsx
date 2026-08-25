@@ -43,6 +43,7 @@ export default function MomentStack() {
   const [loading, setLoading] = useState(true)
   const [fullscreen, setFullscreen] = useState<Moment | null>(null)
   const [complimenting, setComplimenting] = useState(false)
+  const [saving, setSaving] = useState<string | null>(null)
 
   // drag state
   const [dx, setDx] = useState(0)
@@ -137,6 +138,21 @@ export default function MomentStack() {
 
     if (dx < 0) goto(index + 1, -1)
     else goto(index - 1, 1)
+  }
+
+  /**
+   * Rescue a disappearing moment.
+   *
+   * Either of you can keep it — the person who received it usually has more
+   * reason to than the one who sent it. Clearing expires_at is all it takes:
+   * RLS stops hiding it and memories() starts including it again, so it
+   * rejoins the normal moment → memory → album flow.
+   */
+  async function keepForever(id: string) {
+    setSaving(id)
+    await supabase.from('moments').update({ expires_at: null }).eq('id', id)
+    setSaving(null)
+    await load()
   }
 
   async function remove(id: string) {
@@ -251,9 +267,13 @@ export default function MomentStack() {
               </p>
               <div className="flex items-center gap-2">
                 {expiry && (
-                  <span className="rounded-full bg-pink-500/20 px-2 py-0.5 text-[10px] text-pink-200">
-                    ⏳ {expiry}
-                  </span>
+                  <button
+                    onClick={() => void keepForever(current.id)}
+                    disabled={saving === current.id}
+                    className="rounded-full bg-pink-500/20 px-2.5 py-1 text-[10px] font-semibold text-pink-200 transition hover:bg-pink-500/35 disabled:opacity-50"
+                  >
+                    {saving === current.id ? 'Keeping…' : `⏳ ${expiry} · Keep it`}
+                  </button>
                 )}
                 {mine && (
                   <button

@@ -122,6 +122,14 @@ export default function Moments() {
               Disappear after 24 hours
             </label>
 
+            {disappears && (
+              <p className="text-xs leading-relaxed text-rose-400">
+                It clears tomorrow and won't be kept in Memories — but either of
+                you can tap <span className="text-rose-200">Keep it</span> before
+                then to save it for good.
+              </p>
+            )}
+
             <div className="flex gap-2">
               <button
                 onClick={() => {

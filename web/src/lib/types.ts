@@ -28,6 +28,9 @@ export type CoupleStats = {
   vault_items: number
   nudges_sent: number
   spicy_played: number
+  /** Photos sent to each other. Expired ones still count — they happened. */
+  moments_sent: number
+  compliments_sent: number
   current_streak: number
   longest_streak: number
 }

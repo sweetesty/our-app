@@ -79,7 +79,11 @@ export default function Us() {
         <Stat label="Answers" value={stats?.answers_given ?? 0} emoji="💌" />
         <Stat label="Cards played" value={stats?.cards_played ?? 0} emoji="🃏" />
         <Stat label="Notes" value={stats?.notes_written ?? 0} emoji="📌" />
-        <Stat label="Memories" value={stats?.memories_added ?? 0} emoji="📸" />
+        {/* This tile used to say "Memories" while counting timeline entries,
+            so a couple with photos and notes still saw 0. */}
+        <Stat label="Moments" value={stats?.moments_sent ?? 0} emoji="📸" />
+        <Stat label="Timeline" value={stats?.memories_added ?? 0} emoji="🗓️" />
+        <Stat label="Compliments" value={stats?.compliments_sent ?? 0} emoji="💕" />
         <Stat label="Sealed letters" value={stats?.vault_items ?? 0} emoji="🔒" />
         <Stat label="Little nudges" value={stats?.nudges_sent ?? 0} emoji="🫂" />
       </div>
