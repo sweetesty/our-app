@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -79,6 +80,53 @@ const FIELD_BASE =
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(FIELD_BASE, className)} />
+}
+
+/** Password field with a reveal toggle — typing a password blind on a phone
+ *  keyboard is how people end up locked out of their own app. */
+export function PasswordInput({
+  className,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <div className="relative">
+      <input
+        {...rest}
+        type={visible ? 'text' : 'password'}
+        className={cx(FIELD_BASE, 'pr-12', className)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 grid w-12 place-items-center text-rose-400 transition-colors hover:text-rose-200"
+      >
+        {visible ? (
+          // eye with a slash through it
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M3 3l18 18M10.6 10.7a2 2 0 002.8 2.8M9.4 5.4A9.5 9.5 0 0112 5c5 0 9 4.5 9 7 0 .9-.6 2.1-1.6 3.3M6.2 6.7C4.2 8.1 3 10 3 12c0 2.5 4 7 9 7 1.4 0 2.7-.3 3.8-.9"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            />
+            <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.7" />
+          </svg>
+        )}
+      </button>
+    </div>
+  )
 }
 
 export function Textarea({

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { Button, ErrorNote, Field, Input } from '../components/ui'
@@ -18,6 +18,16 @@ export default function PairScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+
+  // While one of you sits on the "waiting for them" screen, nothing tells it
+  // the other has joined — so poll. Cheap, and it means the screen changes by
+  // itself the moment they're in, rather than needing a manual refresh.
+  useEffect(() => {
+    if (choice !== 'created') return
+    const timer = setInterval(() => void refresh(), 4000)
+    return () => clearInterval(timer)
+  }, [choice, refresh])
 
   async function createSpace() {
     setBusy(true)
@@ -29,6 +39,18 @@ export default function PairScreen() {
     if (rpcError) return setError(errorMessage(rpcError))
     setCouple(data as Couple)
     setChoice('created')
+  }
+
+  /** Undo an accidental "open a new space" and go join theirs instead. */
+  async function startOver() {
+    setBusy(true)
+    setError('')
+    const { error: rpcError } = await supabase.rpc('leave_couple')
+    setBusy(false)
+    if (rpcError) return setError(errorMessage(rpcError))
+    setCouple(null)
+    setChoice('joining')
+    await refresh()
   }
 
   async function join() {
@@ -79,6 +101,15 @@ export default function PairScreen() {
             <Button variant="ghost" className="w-full" onClick={() => void refresh()}>
               I've sent it, take me in
             </Button>
+
+            {/* The escape hatch. Someone who had a code and tapped the wrong
+                button lands here, and without this there is no way back. */}
+            <button
+              onClick={() => void startOver()}
+              className="mx-auto block text-xs text-rose-400 underline-offset-4 hover:text-rose-200 hover:underline"
+            >
+              Wrong turn — I actually have a code
+            </button>
           </div>
         ) : choice === 'joining' ? (
           <div className="surface space-y-5 p-7">
@@ -121,34 +152,63 @@ export default function PairScreen() {
               <p className="text-4xl">🚪</p>
               <h1 className="text-3xl text-ink">One space, two people</h1>
               <p className="text-sm leading-relaxed text-ink-muted">
-                One of you opens it, the other joins with a code. Whoever gets there first.
+                Which one are you?
               </p>
             </div>
 
-            <div className="surface space-y-4 p-6">
-              <Field label="Name your space" hint="Optional. You can change it later.">
-                <Input
-                  value={spaceName}
-                  onChange={(e) => setSpaceName(e.target.value)}
-                  placeholder="Us"
-                  maxLength={40}
-                />
-              </Field>
-              {error && <ErrorNote>{error}</ErrorNote>}
-              <Button size="lg" className="w-full" loading={busy} onClick={() => void createSpace()}>
-                Open a new space
-              </Button>
-            </div>
+            {error && <ErrorNote>{error}</ErrorNote>}
 
-            <div className="flex items-center gap-4 text-xs text-ink-faint">
-              <span className="h-px flex-1 bg-raised" />
-              or
-              <span className="h-px flex-1 bg-raised" />
-            </div>
+            {/* "I have a code" comes first and carries equal weight. The
+                invited person is the one most likely to be here, and burying
+                this under a primary "create" button is how they end up alone
+                in a space of their own. */}
+            <button
+              onClick={() => setChoice('joining')}
+              className="w-full rounded-3xl border border-pink-500/40 bg-pink-500/10 p-5 text-left transition hover:border-pink-500/70"
+            >
+              <span className="mb-1 block text-2xl">💌</span>
+              <span className="block text-base font-bold text-white">
+                Someone sent me a code
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-rose-300">
+                They've already made the space. Join theirs — don't make a
+                second one.
+              </span>
+            </button>
 
-            <Button variant="ghost" size="lg" className="w-full" onClick={() => setChoice('joining')}>
-              I have a code
-            </Button>
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="w-full rounded-3xl border border-rose-700/40 bg-rose-900/30 p-5 text-left transition hover:border-rose-600/60"
+            >
+              <span className="mb-1 block text-2xl">🕯️</span>
+              <span className="block text-base font-bold text-white">
+                I'm starting ours
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-rose-300">
+                Opens a new space and gives you a code to send them.
+              </span>
+            </button>
+
+            {showCreate && (
+              <div className="surface animate-rise space-y-4 p-6">
+                <Field label="Name your space" hint="Optional. You can change it later.">
+                  <Input
+                    value={spaceName}
+                    onChange={(e) => setSpaceName(e.target.value)}
+                    placeholder="Us"
+                    maxLength={40}
+                  />
+                </Field>
+                <Button
+                  size="lg"
+                  className="w-full"
+                  loading={busy}
+                  onClick={() => void createSpace()}
+                >
+                  Open a new space
+                </Button>
+              </div>
+            )}
           </>
         )}
 

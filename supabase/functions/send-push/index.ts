@@ -16,7 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 type PushEvent = {
-  type: 'nudge' | 'answer' | 'vault'
+  type: 'nudge' | 'answer' | 'vault' | 'joined'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -158,6 +158,13 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} answered 💌`,
       body: 'Write yours to unlock what they said.',
+    }
+  }
+
+  if (event.type === 'joined') {
+    return {
+      title: `${event.sender_name} joined 🕯️`,
+      body: "You're both in. It's just the two of you now.",
     }
   }
 

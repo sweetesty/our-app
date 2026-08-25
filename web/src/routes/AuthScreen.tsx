@@ -1,7 +1,7 @@
 ﻿import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errorMessage } from '../lib/supabase'
-import { Button, ErrorNote, Field, Input } from '../components/ui'
+import { Button, ErrorNote, Field, Input, PasswordInput } from '../components/ui'
 import { LogoLockup } from '../components/Logo'
 
 /** Google's mark, inlined so it does not depend on a CDN the CSP may block. */
@@ -137,8 +137,7 @@ export default function AuthScreen() {
           </Field>
 
           <Field label="Password" hint={mode === 'signup' ? 'At least 6 characters.' : undefined}>
-            <Input
-              type="password"
+            <PasswordInput
               required
               minLength={6}
               value={password}
