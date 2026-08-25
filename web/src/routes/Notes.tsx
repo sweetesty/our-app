@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useState } from 'react'
+
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import {
@@ -32,7 +33,8 @@ export default function Notes() {
   const [noteReactions, setNoteReactions] = useState<Record<string, ReactionRow[]>>({})
 
   async function toggleFavourite(note: LoveNote) {
-    await supabase.rpc('toggle_note_favourite', { note: note.id })
+    const { data } = await supabase.rpc('toggle_note_favourite', { note: note.id })
+    if (data) setReading(data as LoveNote)
     await load()
   }
 
@@ -84,8 +86,12 @@ export default function Notes() {
   }
 
   async function togglePin(note: LoveNote) {
-    const { error: rpcError } = await supabase.rpc('toggle_note_pin', { note: note.id })
-    if (rpcError) setError(errorMessage(rpcError))
+    const { data, error: rpcError } = await supabase.rpc('toggle_note_pin', { note: note.id })
+    if (rpcError) return setError(errorMessage(rpcError))
+
+    // Update the open note too. Without this the button kept saying "Pin to
+    // top" after pinning, so there was no sign it had worked.
+    if (data) setReading(data as LoveNote)
     await load()
   }
 
@@ -133,12 +139,29 @@ export default function Notes() {
         Things worth writing down. Pin the ones that should stay at the top.
       </PageHeader>
 
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search your notes…"
-        className="mb-3 w-full rounded-2xl border border-rose-700/40 bg-rose-950/50 px-4 py-2.5 text-sm text-rose-100 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
-      />
+      {/* Search, not a composer. It sat directly under "Leave a note" as a big
+          empty box and people typed their note into it — so it now carries a
+          magnifier, a clear button, and no resemblance to a writing field. */}
+      <div className="relative mb-3">
+        <span className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-sm text-rose-400">
+          🔍
+        </span>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search notes you've already written"
+          className="w-full rounded-full border border-rose-700/40 bg-rose-950/60 py-2 pr-9 pl-9 text-sm text-rose-100 placeholder-rose-400/60 focus:border-pink-500 focus:outline-none"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            aria-label="Clear search"
+            className="absolute inset-y-0 right-2 grid w-7 place-items-center rounded-full text-rose-400 hover:text-rose-200"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       <div className="scrollbar-none mb-2 flex gap-2 overflow-x-auto pb-1">
         {(['all', 'favourites', 'mine', 'theirs'] as const).map((f) => (
@@ -195,7 +218,30 @@ export default function Notes() {
 
       {error && <div className="mb-4"><ErrorNote>{error}</ErrorNote></div>}
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && notes.length > 0 ? (
+        /* Notes exist, they are just filtered out. Saying "blank wall" here
+           told people their notes were gone. */
+        <div className="rounded-3xl border border-rose-700/40 bg-rose-900/25 p-8 text-center">
+          <p className="text-3xl">🔍</p>
+          <p className="mt-2 text-sm text-white">
+            No notes match {query ? `"${query.trim()}"` : 'those filters'}
+          </p>
+          <p className="mt-1 text-xs text-rose-400">
+            You have {notes.length} note{notes.length === 1 ? '' : 's'} — they're just
+            hidden right now.
+          </p>
+          <button
+            onClick={() => {
+              setQuery('')
+              setFilter('all')
+              setMoodFilter('all')
+            }}
+            className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-xs font-semibold transition hover:bg-rose-600"
+          >
+            Show everything
+          </button>
+        </div>
+      ) : visible.length === 0 ? (
         <EmptyState
           emoji="📌"
           title="A blank wall"
@@ -373,8 +419,23 @@ function Composer({
   const [mood, setMood] = useState<NoteMood>('sweet')
   const [pin, setPin] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
+  const [showKinds, setShowKinds] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  // Start clean every time it opens. Fields were only cleared after a
+  // successful save, so closing and reopening showed the last thing typed —
+  // which read as the form being stuck.
+  useEffect(() => {
+    if (!open) return
+    setTitle('')
+    setBody('')
+    setMood(MOODS[0].value)
+    setPin(false)
+    setPhoto(null)
+    setShowKinds(false)
+    setError('')
+  }, [open])
 
   async function save() {
     if (!body.trim() || !coupleId) return
@@ -431,23 +492,44 @@ function Composer({
           />
         </Field>
 
-        <Field label="What kind of note?">
-          <div className="flex flex-wrap gap-2">
-            {MOODS.map((m) => (
-              <button
-                key={m.value}
-                onClick={() => setMood(m.value)}
-                className={
-                  mood === m.value
-                    ? 'rounded-full bg-lav-400/15 px-3 py-1.5 text-xs text-lav-300 ring-1 ring-lav-400/30'
-                    : 'rounded-full bg-raised/50 px-3 py-1.5 text-xs text-ink-muted hover:text-ink-soft'
-                }
-              >
-                {m.emoji} {m.label}
-              </button>
-            ))}
-          </div>
-        </Field>
+        {/* A title already says when to open the note, which is the category's
+            only job — so once one is written, nine chips are just noise. It
+            collapses to a single line you can reopen if you want one. */}
+        {title.trim() && !showKinds ? (
+          <button
+            onClick={() => setShowKinds(true)}
+            className="flex w-full items-center justify-between rounded-xl border border-rose-700/30 bg-rose-900/25 px-4 py-2.5 text-left"
+          >
+            <span className="text-xs text-rose-300">
+              Category: <span className="text-rose-100">{MOODS.find((m) => m.value === mood)?.label}</span>
+            </span>
+            <span className="text-xs text-rose-400">Change</span>
+          </button>
+        ) : (
+          <Field
+            label="What kind of note?"
+            hint={title.trim() ? undefined : 'So they know when to open it.'}
+          >
+            <div className="flex flex-wrap gap-2">
+              {MOODS.map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => {
+                    setMood(m.value)
+                    if (title.trim()) setShowKinds(false)
+                  }}
+                  className={
+                    mood === m.value
+                      ? 'rounded-full bg-pink-500/20 px-3 py-1.5 text-xs text-pink-200 ring-1 ring-pink-500/40'
+                      : 'rounded-full bg-rose-900/50 px-3 py-1.5 text-xs text-rose-300 hover:text-rose-100'
+                  }
+                >
+                  {m.emoji} {m.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
 
         <Field label="Add a photo" hint="Optional — one picture, tucked inside the note.">
           <input
