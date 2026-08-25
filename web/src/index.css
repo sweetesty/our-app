@@ -230,8 +230,12 @@
 
   .flip-scene { perspective: 1400px; }
 
+  /* Both faces occupy the same grid cell, so the card sizes itself to whichever
+     is taller. The back used to be position:absolute, which took it out of flow
+     — a long answer then spilled straight out of the bottom of the card. */
   .flip-card {
     position: relative;
+    display: grid;
     transform-style: preserve-3d;
     transition: transform 0.7s cubic-bezier(0.25, 0.9, 0.25, 1);
   }
@@ -239,13 +243,12 @@
   .flip-card.is-flipped { transform: rotateY(180deg); }
 
   .flip-face {
+    grid-area: 1 / 1;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
   }
 
   .flip-back {
-    position: absolute;
-    inset: 0;
     transform: rotateY(180deg);
   }
 

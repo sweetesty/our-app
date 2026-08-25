@@ -26,43 +26,47 @@ export default function Today() {
   // not throw hearts at you.
   const [justRevealed, setJustRevealed] = useState(false)
   const [flipped, setFlipped] = useState(false)
-  const wasRevealed = useRef(false)
-  const seenFirstLoad = useRef(false)
   const revealCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (loading) return
     const revealed = question?.revealed ?? false
 
-    // First paint of the session: adopt whatever state we are in without any
-    // celebration. Opening a question you unlocked yesterday should be quiet.
-    if (!seenFirstLoad.current) {
-      seenFirstLoad.current = true
-      wasRevealed.current = revealed
-      setFlipped(revealed)
+    // Their answer stays face-down until you turn it over yourself.
+    //
+    // It used to flip automatically the moment the second answer landed, which
+    // meant the moment only happened if you were staring at the screen — open
+    // the app ten minutes later and you just found the answer sitting there.
+    // Making it a tap means the reveal happens when you're actually present
+    // for it, whenever that is.
+    if (!revealed) {
+      setFlipped(false)
       return
     }
 
-    if (revealed && !wasRevealed.current) {
-      wasRevealed.current = revealed
-      setJustRevealed(true)
+    try {
+      const key = `olw-revealed-${question?.daily_question_id}`
+      setFlipped(localStorage.getItem(key) === '1')
+    } catch {
+      setFlipped(false)
+    }
+  }, [loading, question?.revealed, question?.daily_question_id])
 
-      // Let the sealed face land, turn the card, then fire the confetti at the
-      // moment the answer is actually readable rather than before it.
-      const flip = setTimeout(() => setFlipped(true), 420)
-      const burst = setTimeout(() => celebrateReveal(revealCardRef.current), 900)
-      const done = setTimeout(() => setJustRevealed(false), 3200)
+  function revealTheirAnswer() {
+    if (flipped) return
+    setFlipped(true)
+    setJustRevealed(true)
 
-      return () => {
-        clearTimeout(flip)
-        clearTimeout(burst)
-        clearTimeout(done)
-      }
+    try {
+      localStorage.setItem(`olw-revealed-${question?.daily_question_id}`, '1')
+    } catch {
+      // Private mode. It will simply ask again next visit.
     }
 
-    wasRevealed.current = revealed
-    if (revealed) setFlipped(true)
-  }, [loading, question?.revealed])
+    // Fire once the card has actually turned and the words are readable.
+    setTimeout(() => celebrateReveal(revealCardRef.current), 480)
+    setTimeout(() => setJustRevealed(false), 3000)
+  }
 
   const load = useCallback(async () => {
     setError('')
@@ -250,11 +254,28 @@ export default function Today() {
             {/* Their answer, as a card that turns over. On a live reveal it
                 starts face-down and flips; opening a question you already
                 revealed just shows the face, with no theatre. */}
-            <div ref={revealCardRef} className="flip-scene">
-              <div className={cx('flip-card min-h-[104px]', flipped && 'is-flipped')}>
-                {/* face down — the sealed side */}
-                <div className="flip-face card-back grid min-h-[104px] place-items-center rounded-2xl">
-                  <span className="text-3xl">🔒</span>
+            <div
+              ref={revealCardRef}
+              className={cx('flip-scene', !flipped && 'cursor-pointer')}
+              onClick={revealTheirAnswer}
+              role={flipped ? undefined : 'button'}
+              tabIndex={flipped ? undefined : 0}
+              onKeyDown={(e) => {
+                if (!flipped && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault()
+                  revealTheirAnswer()
+                }
+              }}
+            >
+              <div className={cx('flip-card min-h-[128px]', flipped && 'is-flipped')}>
+                {/* face down — tap this to turn it over */}
+                <div className="flip-face card-back grid min-h-[128px] place-items-center rounded-2xl">
+                  <div className="text-center">
+                    <span className="animate-pulse-soft block text-3xl">🔒</span>
+                    <span className="mt-2 block text-xs font-semibold text-rose-200">
+                      {partnerName} answered — tap to reveal ✨
+                    </span>
+                  </div>
                 </div>
 
                 {/* face up — what they wrote */}

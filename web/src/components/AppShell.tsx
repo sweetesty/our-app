@@ -8,6 +8,7 @@ import { cx } from './ui'
 
 const NAV = [
   { to: '/', icon: '✨', label: 'Today', end: true },
+  { to: '/moments', icon: '📸', label: 'Moments' },
   { to: '/cards', icon: '🃏', label: 'Cards' },
   { to: '/notes', icon: '📌', label: 'Notes' },
   { to: '/timeline', icon: '🗓️', label: 'Timeline' },

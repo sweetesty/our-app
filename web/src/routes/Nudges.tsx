@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
-import { ErrorNote, Input, Loading, PageHeader } from '../components/ui'
+import { cx, ErrorNote, Input, Loading, PageHeader } from '../components/ui'
 import { ago } from '../lib/format'
 import { NUDGES, type Nudge, type NudgeKind } from '../lib/types'
 
@@ -11,6 +11,10 @@ export default function Nudges() {
   const [note, setNote] = useState('')
   const [sending, setSending] = useState<NudgeKind | null>(null)
   const [justSent, setJustSent] = useState<NudgeKind | null>(null)
+  const [selectedKind, setSelectedKind] = useState<NudgeKind>('miss_you')
+
+  const selected = NUDGES.find((n) => n.kind === selectedKind) ?? NUDGES[0]
+  const sent = justSent === selectedKind
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -74,48 +78,70 @@ export default function Nudges() {
 
       {error && <div className="mb-4"><ErrorNote>{error}</ErrorNote></div>}
 
-      {/* The big one gets its own row. */}
+      {/* Pick below, it loads up here, then send. The big card is the one you
+          actually fire, so nothing gets sent by a stray tap on a small icon. */}
       <button
-        onClick={() => void send('miss_you')}
+        onClick={() => void send(selected.kind)}
         disabled={sending !== null}
-        className="paper taped tilt-a mb-3 grid w-full place-items-center gap-2 pt-14 pb-12 shadow-[var(--shadow-bloom)] transition-transform active:scale-[0.985] disabled:opacity-60"
+        className="mb-4 grid w-full place-items-center gap-2 rounded-3xl border border-pink-500/40 bg-gradient-to-br from-rose-900/70 to-rose-950 py-12 shadow-2xl transition-transform active:scale-[0.985] disabled:opacity-60"
       >
-        <span className={justSent === 'miss_you' ? 'text-6xl' : 'animate-pulse-soft text-6xl'}>
-          {justSent === 'miss_you' ? '💌' : '🥺'}
-        </span>
+        {/* keyed on the selection so it re-mounts and replays the animation */}
         <span
-          className="font-display text-3xl text-lav-500"
-          style={{
-            textShadow: '0 2px 0 var(--color-blush-400), 0 -2px 0 var(--color-blush-400), 2px 0 0 var(--color-blush-400), -2px 0 0 var(--color-blush-400)',
-          }}
+          key={sent ? 'sent' : selected.kind}
+          className="animate-unseal text-6xl"
         >
-          {justSent === 'miss_you' ? 'Sent.' : 'I miss you'}
+          {sent ? '💌' : selected.emoji}
         </span>
-        <span className="text-xs text-ink-faint">
-          {justSent === 'miss_you' ? `${partnerName} will know in a second` : 'tap it'}
+
+        <span key={`${selected.kind}-label`} className="animate-rise text-3xl font-bold text-white">
+          {sent ? 'Sent.' : selected.label}
+        </span>
+
+        <span className="text-xs text-rose-300">
+          {sent
+            ? `${partnerName} will know in a second`
+            : note.trim()
+              ? `with "${note.trim()}" — tap to send`
+              : 'tap to send'}
         </span>
       </button>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {NUDGES.filter((n) => n.kind !== 'miss_you').map((n) => (
-          <button
-            key={n.kind}
-            onClick={() => void send(n.kind)}
-            disabled={sending !== null}
-            className="surface group grid place-items-center gap-2 py-7 transition-transform hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
-          >
-            <span
-              className={
-                justSent === n.kind
-                  ? 'stamp grid size-14 rotate-[-8deg] place-items-center rounded-full bg-blush-300/60 text-2xl text-blush-600'
-                  : 'grid size-14 place-items-center rounded-full bg-sunken text-3xl transition-transform group-hover:rotate-[-6deg]'
-              }
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        {NUDGES.map((n) => {
+          const active = n.kind === selected.kind
+          return (
+            <button
+              key={n.kind}
+              onClick={() => setSelectedKind(n.kind)}
+              disabled={sending !== null}
+              className={cx(
+                'group grid place-items-center gap-2 rounded-2xl border py-5 transition-all disabled:opacity-60',
+                active
+                  ? 'scale-105 border-pink-500/60 bg-pink-500/15'
+                  : 'border-rose-700/40 bg-rose-900/30 hover:-translate-y-0.5 hover:bg-rose-900/50',
+              )}
             >
-              {justSent === n.kind ? '✓' : n.emoji}
-            </span>
-            <span className="text-xs text-ink-muted">{justSent === n.kind ? 'sent' : n.label}</span>
-          </button>
-        ))}
+              <span
+                className={cx(
+                  'grid size-12 place-items-center rounded-full text-2xl transition-transform',
+                  active
+                    ? 'bg-pink-500/25 scale-110'
+                    : 'bg-rose-950/60 group-hover:rotate-[-6deg]',
+                )}
+              >
+                {n.emoji}
+              </span>
+              <span
+                className={cx(
+                  'px-1 text-center text-[11px] leading-tight',
+                  active ? 'font-semibold text-pink-200' : 'text-rose-300',
+                )}
+              >
+                {n.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="mb-8">
