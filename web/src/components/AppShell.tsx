@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useSession } from '../context/SessionProvider'
 import { useDaysSince } from '../lib/useDaysSince'
-import NudgeListener from './NudgeListener'
+import InAppAlerts from './InAppAlerts'
 import Logo from './Logo'
 import { cx } from './ui'
 
@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh flex flex-col text-rose-50 selection:bg-rose-500 selection:text-white">
-      <NudgeListener />
+      <InAppAlerts />
 
       {/* Top Navigation / Header */}
       {/* The status bar sits over the page on an installed PWA, so the clock
