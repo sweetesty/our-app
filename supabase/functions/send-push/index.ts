@@ -26,6 +26,8 @@ type PushEvent = {
     | 'date'
     | 'moment'
     | 'reaction'
+    | 'compliment'
+    | 'milestone'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -202,6 +204,31 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} answered 💌`,
       body: 'Write yours to unlock what they said.',
+    }
+  }
+
+  if (event.type === 'compliment') {
+    return {
+      title: `${event.sender_name} ${event.kind ?? '💕'}`,
+      // The whole compliment goes on the lock screen. Unlike a love note, this
+      // is meant to be read on the spot — that is the entire point of it.
+      body: event.message ?? 'Said something nice about you.',
+    }
+  }
+
+  if (event.type === 'milestone') {
+    if (event.kind === 'month') {
+      const months = Number(event.label ?? 0)
+      return {
+        title: `${months} month${months === 1 ? '' : 's'} today 💗`,
+        body: event.message
+          ? `${Number(event.message).toLocaleString()} days of the two of you.`
+          : 'Worth saying out loud.',
+      }
+    }
+    return {
+      title: `${Number(event.label ?? 0).toLocaleString()} days together 🎉`,
+      body: 'That is a lot of ordinary days made good.',
     }
   }
 
