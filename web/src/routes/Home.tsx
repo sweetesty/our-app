@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { Loading } from '../components/ui'
 import Logo from '../components/Logo'
-import { ago, daysSince } from '../lib/format'
+import { ago } from '../lib/format'
+import { useDaysSince } from '../lib/useDaysSince'
 import { NUDGES, type TodayQuestion } from '../lib/types'
 
 function greeting() {
@@ -20,6 +21,8 @@ export default function Home() {
   const [today, setToday] = useState<TodayQuestion | null>(null)
   const [loading, setLoading] = useState(true)
   const [sent, setSent] = useState(false)
+  // Above the loading return: hooks cannot sit behind one.
+  const together = useDaysSince(summary?.couple?.anniversary)
 
   useEffect(() => {
     supabase.rpc('today_question').then(({ data }) => {
@@ -40,7 +43,6 @@ export default function Home() {
   const me = summary?.me
   const partner = summary?.partner
   const stats = summary?.stats
-  const together = daysSince(summary?.couple?.anniversary)
   const readyVault = summary?.ready_vault ?? 0
   const unreadNotes = summary?.unread_notes ?? 0
   const lastNudge = summary?.latest_nudge

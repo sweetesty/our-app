@@ -96,13 +96,18 @@ export default function Settings() {
               onChange={(e) => setAnniversary(e.target.value)}
             />
           </Field>
+
+          {/* Kept inside the card rather than floating between sections: on a
+              phone it scrolled away from the fields it saves and read like a
+              button belonging to nothing. */}
+          {error && <ErrorNote>{error}</ErrorNote>}
+
+          <div className="border-t border-rose-800/40 pt-4">
+            <Button loading={busy} onClick={() => void save()}>
+              {saved ? 'Saved ✓' : 'Save changes'}
+            </Button>
+          </div>
         </section>
-
-        {error && <ErrorNote>{error}</ErrorNote>}
-
-        <Button loading={busy} onClick={() => void save()}>
-          {saved ? 'Saved ✓' : 'Save changes'}
-        </Button>
 
         <section className="surface space-y-3 p-6">
           <h2 className="label">Who's here</h2>

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useSession } from '../context/SessionProvider'
-import { daysSince } from '../lib/format'
+import { useDaysSince } from '../lib/useDaysSince'
 import NudgeListener from './NudgeListener'
 import Logo from './Logo'
 import { cx } from './ui'
@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // The header said "Streak" but showed days-since-anniversary, which is a
   // different number entirely — and read as 0 for anyone who never set one.
   const streak = summary?.stats?.current_streak ?? 0
-  const together = daysSince(couple?.anniversary)
+  const together = useDaysSince(couple?.anniversary)
 
   return (
     <div className="min-h-dvh flex flex-col text-rose-50 selection:bg-rose-500 selection:text-white">
