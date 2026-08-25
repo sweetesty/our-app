@@ -170,11 +170,35 @@ export default function Memories() {
         ))}
       </div>
 
-      {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-rose-700/40 bg-rose-900/20 p-8 text-center">
-          <p className="text-sm text-rose-200">Nothing here yet</p>
+      {visible.length === 0 && memories.length > 0 ? (
+        /* Things exist, the filters are just hiding them. Saying "nothing here"
+           made an active album or type look like an empty gallery. */
+        <div className="rounded-2xl border border-rose-700/40 bg-rose-900/25 p-8 text-center">
+          <p className="text-3xl">🔍</p>
+          <p className="mt-2 text-sm text-white">Nothing matches those filters</p>
           <p className="mt-1 text-xs text-rose-400">
-            Photos, voice notes, notes and answered cards all land here on their own.
+            You have {memories.length} memor{memories.length === 1 ? 'y' : 'ies'} —
+            {album !== 'all' && ' that album is empty'}
+            {album !== 'all' && filter !== 'all' && ', and'}
+            {filter !== 'all' && ` no ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} yet`}.
+          </p>
+          <button
+            onClick={() => {
+              setFilter('all')
+              setAlbum('all')
+            }}
+            className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-xs font-semibold transition hover:bg-rose-600"
+          >
+            Show everything
+          </button>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-rose-700/40 bg-rose-900/20 p-8 text-center">
+          <p className="text-3xl">🖼️</p>
+          <p className="mt-2 text-sm text-rose-200">Nothing here yet</p>
+          <p className="mt-1 text-xs leading-relaxed text-rose-400">
+            This fills itself. Write a note, add a timeline moment, answer a card
+            or send a photo — it all lands here on its own.
           </p>
         </div>
       ) : (
