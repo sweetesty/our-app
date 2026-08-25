@@ -16,7 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 type PushEvent = {
-  type: 'nudge' | 'answer' | 'vault' | 'joined' | 'note' | 'mood'
+  type: 'nudge' | 'answer' | 'vault' | 'joined' | 'note' | 'mood' | 'date'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -173,6 +173,20 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} answered 💌`,
       body: 'Write yours to unlock what they said.',
+    }
+  }
+
+  if (event.type === 'date') {
+    // sender_name carries the icon here — a calendar reminder has no sender.
+    if (event.kind === 'today') {
+      return {
+        title: `${event.sender_name} ${event.label} — today`,
+        body: event.message ?? "Don't let it slip past.",
+      }
+    }
+    return {
+      title: `${event.sender_name} ${event.label}`,
+      body: `Coming up in ${event.message ?? 'a few days'}.`,
     }
   }
 

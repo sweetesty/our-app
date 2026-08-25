@@ -16,6 +16,7 @@ import {
 import { longDate } from '../lib/format'
 import { removeMedia, signedUrls, uploadMedia } from '../lib/media'
 import VoiceRecorder from '../components/VoiceRecorder'
+import ImportantDates from '../components/ImportantDates'
 import type { Milestone, MilestoneMedia } from '../lib/types'
 
 const ICONS = ['💫', '💌', '📞', '🌙', '🏡', '✈️', '🥂', '🎂', '💍', '🌊', '🎶', '☕']
@@ -81,6 +82,12 @@ export default function Timeline() {
       </PageHeader>
 
       {error && <div className="mb-4"><ErrorNote>{error}</ErrorNote></div>}
+
+      {/* What's coming, above what already happened — one place for "our
+          dates" rather than two things to check. */}
+      <ImportantDates />
+
+      <h3 className="mb-3 text-lg font-bold text-white">🗓️ How we got here</h3>
 
       {milestones.length === 0 ? (
         <EmptyState
