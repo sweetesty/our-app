@@ -16,7 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 type PushEvent = {
-  type: 'nudge' | 'answer' | 'vault' | 'joined'
+  type: 'nudge' | 'answer' | 'vault' | 'joined' | 'note' | 'mood'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -34,6 +34,21 @@ const NUDGE_COPY: Record<string, { emoji: string; line: string }> = {
   kiss: { emoji: '😘', line: 'wants a kiss' },
   annoying: { emoji: '😂', line: 'is a little annoyed with you' },
   proud: { emoji: '🫶', line: 'is proud of you' },
+}
+
+/** Mirrors the mood values in migration 0012. */
+const MOOD_COPY: Record<string, { emoji: string; word: string }> = {
+  great: { emoji: '🔥', word: 'great' },
+  good: { emoji: '😊', word: 'good' },
+  loved: { emoji: '🥰', word: 'loved' },
+  calm: { emoji: '😌', word: 'calm' },
+  meh: { emoji: '😐', word: 'a bit meh' },
+  tired: { emoji: '😩', word: 'tired' },
+  anxious: { emoji: '😰', word: 'anxious' },
+  low: { emoji: '🥺', word: 'low' },
+  frustrated: { emoji: '😤', word: 'frustrated' },
+  unwell: { emoji: '🤒', word: 'unwell' },
+  missing: { emoji: '💭', word: 'like they miss you' },
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -158,6 +173,26 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} answered 💌`,
       body: 'Write yours to unlock what they said.',
+    }
+  }
+
+  if (event.type === 'note') {
+    return {
+      title:
+        event.kind === 'pinned'
+          ? `${event.sender_name} pinned something for you 📌`
+          : `${event.sender_name} left you a note 💌`,
+      // Title only, never the body — a note is meant to be opened, and
+      // spending it on a lock screen would waste the moment.
+      body: event.label ?? 'On the wall, whenever you want it.',
+    }
+  }
+
+  if (event.type === 'mood') {
+    const feeling = MOOD_COPY[event.kind ?? ''] ?? { emoji: '💭', word: 'something' }
+    return {
+      title: `${event.sender_name} is feeling ${feeling.word} ${feeling.emoji}`,
+      body: event.message ?? 'Tap to see how their day is going.',
     }
   }
 

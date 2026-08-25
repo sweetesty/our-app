@@ -47,7 +47,11 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
   const type = event.notification.data?.type
-  const path = type === 'answer' ? '/' : type === 'vault' ? '/vault' : '/nudges'
+  const path =
+    type === 'vault' ? '/vault'
+    : type === 'note' ? '/notes'
+    : type === 'nudge' ? '/nudges'
+    : '/'   // answer, mood and joined all belong on Today
 
   event.waitUntil(
     clients
