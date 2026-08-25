@@ -31,7 +31,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <NudgeListener />
 
       {/* Top Navigation / Header */}
-      <header className="w-full border-b border-rose-800/40 dark-glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+      {/* The status bar sits over the page on an installed PWA, so the clock
+          and battery were landing on top of the title. Pad by the safe-area
+          inset — max() keeps normal spacing on phones that report none. */}
+      <header
+        className="dark-glass sticky top-0 z-50 flex w-full items-center justify-between border-b border-rose-800/40 px-6 pb-4"
+        style={{ paddingTop: 'max(1rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
+      >
         <div className="flex items-center gap-3">
           <Logo size={34} />
           <div>
@@ -66,7 +72,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       {/* App Container */}
-      <main className="max-w-2xl w-full mx-auto p-6 flex-grow flex flex-col gap-6">
+      <main
+        className="mx-auto flex w-full max-w-2xl flex-grow flex-col gap-6 p-6"
+        // Clear the home indicator on gesture-navigation phones.
+        style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+      >
         {children}
       </main>
     </div>
