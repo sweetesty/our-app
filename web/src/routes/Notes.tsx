@@ -398,9 +398,26 @@ function NoteCard({
       )}
 
       <p className="line-clamp-4 text-sm leading-relaxed text-rose-100">“{note.body}”</p>
-      <p className="mt-2 text-xs text-rose-400/70">{when(note.created_at)}</p>
+      <p className="mt-2 flex items-center gap-2 text-xs text-rose-400/70">
+        <span>{when(note.created_at)}</span>
+        {/* An unpinned note has a clock on it, so say so before it goes. */}
+        {note.expires_at && (
+          <span className="rounded-full bg-rose-950/60 px-2 py-0.5 text-[10px] text-rose-300">
+            ⏳ {hoursLeft(note.expires_at)}
+          </span>
+        )}
+      </p>
     </button>
   )
+}
+
+/** "gone in 6h" — the wait, phrased plainly. */
+function hoursLeft(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return 'gone'
+  const hours = Math.floor(ms / 3_600_000)
+  if (hours >= 1) return `gone in ${hours}h`
+  return `gone in ${Math.max(1, Math.floor(ms / 60_000))}m`
 }
 
 function Composer({
@@ -547,8 +564,14 @@ function Composer({
             onChange={(e) => setPin(e.target.checked)}
             className="size-4 accent-pink-500"
           />
-          Pin this to the top of the wall
+          Keep this one — pin it to the wall
         </label>
+
+        <p className="text-xs leading-relaxed text-rose-400">
+          {pin
+            ? 'Pinned notes stay until you unpin them.'
+            : 'Unpinned notes clear after 24 hours. Pin it any time before then to keep it.'}
+        </p>
 
         {error && <ErrorNote>{error}</ErrorNote>}
         <Button className="w-full" loading={busy} disabled={!body.trim()} onClick={() => void save()}>

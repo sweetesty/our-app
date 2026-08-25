@@ -107,6 +107,8 @@ export type LoveNote = {
   is_pinned: boolean
   is_favourite: boolean
   photo_path: string | null
+  /** Unpinned notes clear after 24 hours; pinning sets this to null. */
+  expires_at: string | null
   read_at: string | null
   created_at: string
   updated_at: string

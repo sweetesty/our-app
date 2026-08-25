@@ -4,7 +4,6 @@ import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading, Modal } from '../components/ui'
 import { signedUrls, uploadMedia } from '../lib/media'
 import ReorderableGrid from '../components/ReorderableGrid'
-import MomentStack from '../components/MomentStack'
 import { when } from '../lib/format'
 
 type Memory = {
@@ -68,6 +67,54 @@ export default function Memories() {
    * view — which nobody would do for twenty holiday photos, so everything
    * stayed in "All memories" and the albums sat empty.
    */
+  /** Take the selected items out of the album they are being viewed in. */
+  async function unfileSelected() {
+    if (album === 'all' || selected.size === 0) return
+
+    await supabase
+      .from('album_items')
+      .delete()
+      .eq('album_id', album)
+      .in('memory_id', [...selected])
+
+    setSelected(new Set())
+    setSelecting(false)
+    await load()
+  }
+
+  /**
+   * Delete for real.
+   *
+   * Only moments can be deleted from here — everything else in the gallery is a
+   * view of something that lives elsewhere, and quietly destroying a love note
+   * or a timeline entry from a photo grid would be a nasty surprise.
+   */
+  async function deleteSelected() {
+    const deletable = [...selected].filter(
+      (id) => memories.find((m) => m.id === id)?.source === 'moments',
+    )
+
+    if (deletable.length === 0) {
+      setError('Only photos you sent as moments can be deleted here.')
+      return
+    }
+
+    const skipped = selected.size - deletable.length
+    const confirmed = window.confirm(
+      `Delete ${deletable.length} photo${deletable.length === 1 ? '' : 's'} for good?` +
+        (skipped > 0
+          ? `\n\n${skipped} item${skipped === 1 ? '' : 's'} will be left alone — notes, cards and timeline entries are deleted from their own screens.`
+          : ''),
+    )
+    if (!confirmed) return
+
+    await supabase.from('moments').delete().in('id', deletable)
+
+    setSelected(new Set())
+    setSelecting(false)
+    await load()
+  }
+
   async function fileSelected(albumId: string) {
     if (selected.size === 0) return
     setError('')
@@ -302,47 +349,8 @@ export default function Memories() {
         </div>
       </div>
 
-      {album !== 'all' && (
-        <div className="rounded-2xl border border-pink-500/25 bg-pink-500/10 p-3">
-          <p className="text-xs text-pink-200">
-            You're in{' '}
-            <span className="font-semibold">
-              {albums.find((a) => a.id === album)?.name}
-            </span>
-            . Anything you add lands here.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <label className="cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow">
-              {uploading ? 'Adding…' : '+ Add photos here'}
-              <input
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  void addPhotos(e.target.files)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-            <button
-              onClick={() => {
-                setAlbum('all')
-                setSelecting(true)
-              }}
-              className="rounded-xl border border-rose-700/40 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-200"
-            >
-              Pick from existing
-            </button>
-          </div>
-        </div>
-      )}
-
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      {/* The swipe stack belongs here too — the grid is for finding something,
-          the stack is for actually looking at them. */}
-      <MomentStack />
 
       {/* type */}
       <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
@@ -390,6 +398,42 @@ export default function Memories() {
           </button>
         ))}
       </div>
+
+      {/* Directly under the album row, so it appears where you tapped rather
+          than above the thing you just chose. */}
+      {album !== 'all' && (
+        <div className="animate-rise rounded-2xl border border-pink-500/25 bg-pink-500/10 p-3">
+          <p className="text-xs text-pink-200">
+            You're in{' '}
+            <span className="font-semibold">{albums.find((a) => a.id === album)?.name}</span>
+            . Anything you add lands here.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <label className="cursor-pointer rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow">
+              {uploading ? 'Adding…' : '+ Add photos here'}
+              <input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void addPhotos(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <button
+              onClick={() => {
+                setAlbum('all')
+                setSelecting(true)
+              }}
+              className="rounded-xl border border-rose-700/40 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-200"
+            >
+              Pick from existing
+            </button>
+          </div>
+        </div>
+      )}
 
       {visible.length === 0 && memories.length > 0 ? (
         /* Things exist, the filters are just hiding them. Saying "nothing here"
@@ -520,6 +564,23 @@ export default function Memories() {
               className="shrink-0 rounded-xl border border-rose-700/50 px-3.5 py-2 text-xs font-semibold whitespace-nowrap text-rose-300"
             >
               + New album
+            </button>
+          </div>
+
+          <div className="mt-2 flex gap-2">
+            {album !== 'all' && (
+              <button
+                onClick={() => void unfileSelected()}
+                className="rounded-xl border border-rose-700/50 px-3 py-1.5 text-xs font-semibold text-rose-300"
+              >
+                Take out of this album
+              </button>
+            )}
+            <button
+              onClick={() => void deleteSelected()}
+              className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300"
+            >
+              🗑 Delete
             </button>
           </div>
         </div>
