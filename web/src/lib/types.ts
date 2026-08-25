@@ -86,7 +86,16 @@ export type CardPlay = {
   played_at: string
 }
 
-export type NoteMood = 'sweet' | 'sorry' | 'proud' | 'hard_day' | 'anniversary' | 'random'
+export type NoteMood =
+  | 'sweet'
+  | 'miss_me'
+  | 'sad'
+  | 'angry'
+  | 'reassurance'
+  | 'happy'
+  | 'sorry'
+  | 'proud'
+  | 'anniversary'
 
 export type LoveNote = {
   id: string
@@ -96,6 +105,8 @@ export type LoveNote = {
   body: string
   mood: NoteMood
   is_pinned: boolean
+  is_favourite: boolean
+  photo_path: string | null
   read_at: string | null
   created_at: string
   updated_at: string
@@ -207,11 +218,20 @@ export const NUDGES: { kind: NudgeKind; emoji: string; label: string; sent: stri
   { kind: 'proud', emoji: '🫶', label: 'Proud of you', sent: 'is proud of you' },
 ]
 
+/** A category is only useful if it names the moment you would open the note. */
 export const MOODS: { value: NoteMood; emoji: string; label: string }[] = [
+  { value: 'miss_me', emoji: '💭', label: 'When you miss me' },
+  { value: 'sad', emoji: '🌧️', label: "When you're sad" },
+  { value: 'angry', emoji: '🔥', label: "When you're angry with me" },
+  { value: 'reassurance', emoji: '🫂', label: 'When you need reassurance' },
+  { value: 'happy', emoji: '☀️', label: "When you're happy" },
   { value: 'sweet', emoji: '💛', label: 'Just because' },
-  { value: 'hard_day', emoji: '🌧️', label: 'For a bad day' },
-  { value: 'proud', emoji: '🫶', label: 'Proud of you' },
   { value: 'sorry', emoji: '🕊️', label: "I'm sorry" },
+  { value: 'proud', emoji: '🌟', label: 'Proud of you' },
   { value: 'anniversary', emoji: '🥂', label: 'For a milestone' },
-  { value: 'random', emoji: '✨', label: 'Random thought' },
 ]
+
+export type LoveNoteExtras = {
+  is_favourite: boolean
+  photo_path: string | null
+}
