@@ -4,6 +4,7 @@ import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading, Modal } from '../components/ui'
 import { signedUrls, uploadMedia } from '../lib/media'
 import ReorderableGrid from '../components/ReorderableGrid'
+import MomentStack from '../components/MomentStack'
 import { when } from '../lib/format'
 
 type Memory = {
@@ -308,6 +309,10 @@ export default function Memories() {
       )}
 
       {error && <ErrorNote>{error}</ErrorNote>}
+
+      {/* The swipe stack belongs here too — the grid is for finding something,
+          the stack is for actually looking at them. */}
+      <MomentStack />
 
       {/* type */}
       <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">

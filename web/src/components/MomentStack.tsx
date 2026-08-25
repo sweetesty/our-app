@@ -4,6 +4,7 @@ import { useSession } from '../context/SessionProvider'
 import { signedUrls } from '../lib/media'
 import { ago } from '../lib/format'
 import Reactions, { type ReactionRow, REACTION_SET } from './Reactions'
+import Compliments from './Compliments'
 import { cx } from './ui'
 
 type Moment = {
@@ -41,11 +42,14 @@ export default function MomentStack() {
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fullscreen, setFullscreen] = useState<Moment | null>(null)
+  const [complimenting, setComplimenting] = useState(false)
 
   // drag state
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [flying, setFlying] = useState(false)
   const startX = useRef(0)
+  const startTime = useRef(0)
 
   const load = useCallback(async () => {
     const [{ data: rows, error: qErr }, { data: reacts }] = await Promise.all([
@@ -78,18 +82,35 @@ export default function MomentStack() {
     void load()
   }, [load])
 
-  function goto(next: number) {
+  /**
+   * Throw the card off screen, then swap.
+   *
+   * It used to snap straight back to centre and change the photo underneath,
+   * which made a committed swipe feel exactly like a failed one — the card
+   * never went anywhere. Now it flies out in the direction you pushed it, and
+   * the next card is already sitting behind.
+   */
+  function goto(next: number, direction: 1 | -1) {
     if (next < 0 || next >= moments.length) {
-      setDx(0)
+      setDx(0) // nothing there; spring back
       return
     }
-    setIndex(next)
-    setDx(0)
+
+    setFlying(true)
+    setDx(direction * window.innerWidth)
+
+    window.setTimeout(() => {
+      setIndex(next)
+      setFlying(false)
+      setDx(0)
+    }, 260)
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    if (flying) return
     setDragging(true)
     startX.current = e.clientX
+    startTime.current = Date.now()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
   }
 
@@ -102,11 +123,19 @@ export default function MomentStack() {
     if (!dragging) return
     setDragging(false)
 
-    // A quarter of the card is enough of a commitment to count as a swipe.
-    const threshold = 90
-    if (dx < -threshold) goto(index + 1)
-    else if (dx > threshold) goto(index - 1)
-    else setDx(0)
+    // A flick counts even if it did not travel far — judging only by distance
+    // made quick swipes feel like they were ignored.
+    const elapsed = Date.now() - startTime.current
+    const velocity = Math.abs(dx) / Math.max(elapsed, 1)
+    const committed = Math.abs(dx) > 70 || velocity > 0.45
+
+    if (!committed) {
+      setDx(0)
+      return
+    }
+
+    if (dx < 0) goto(index + 1, -1)
+    else goto(index - 1, 1)
   }
 
   async function quickReact(momentId: string, emoji: string) {
@@ -167,10 +196,17 @@ export default function MomentStack() {
           onPointerCancel={onPointerUp}
           className={cx(
             'relative touch-pan-y overflow-hidden rounded-3xl border border-pink-500/30 bg-rose-900/40 select-none',
-            !dragging && 'transition-transform duration-300 ease-out',
+            // While dragging the card must track the finger exactly, so no
+            // transition. Flying out is quick and linear-ish; springing back
+            // uses an overshooting curve so it feels elastic rather than stiff.
+            !dragging &&
+              (flying
+                ? 'transition-transform duration-[260ms] ease-out'
+                : 'transition-transform duration-500 [transition-timing-function:cubic-bezier(0.18,1.25,0.4,1)]'),
           )}
           style={{
-            transform: `translateX(${dx}px) rotate(${dx / 28}deg)`,
+            transform: `translateX(${dx}px) rotate(${dx / 22}deg)`,
+            opacity: flying ? 0.2 : 1,
             cursor: dragging ? 'grabbing' : 'grab',
           }}
         >
@@ -223,6 +259,17 @@ export default function MomentStack() {
                 />
               </div>
             </div>
+
+            {/* A compliment belongs on their face, not floating on a home
+                screen — you say it because you are looking at them. */}
+            {!mine && (
+              <button
+                onClick={() => setComplimenting(true)}
+                className="w-full rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-2.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
+              >
+                Send a Compliment 💕
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -233,7 +280,7 @@ export default function MomentStack() {
           {moments.slice(0, 10).map((m, i) => (
             <button
               key={m.id}
-              onClick={() => goto(i)}
+              onClick={() => goto(i, i > index ? -1 : 1)}
               aria-label={`Moment ${i + 1}`}
               className={cx(
                 'h-1.5 rounded-full transition-all',
@@ -243,6 +290,12 @@ export default function MomentStack() {
           ))}
         </div>
       )}
+
+      <Compliments
+        open={complimenting}
+        onClose={() => setComplimenting(false)}
+        hideTrigger
+      />
 
       {/* fullscreen */}
       {fullscreen && (

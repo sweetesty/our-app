@@ -23,6 +23,7 @@ export default function CameraCapture({
   const [facing, setFacing] = useState<'user' | 'environment'>('user')
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [useNativeCamera, setUseNativeCamera] = useState(false)
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -47,8 +48,17 @@ export default function CameraCapture({
           await videoRef.current.play()
         }
         setReady(true)
-      } catch {
-        setError('No camera access. Check the permission, or pick a photo instead.')
+      } catch (err) {
+        // iOS refuses getUserMedia inside a home-screen PWA on many versions,
+        // usually without even prompting. Rather than dead-end, fall back to
+        // the native camera via an input, which works everywhere.
+        const name = err instanceof Error ? err.name : ''
+        setError(
+          name === 'NotAllowedError'
+            ? 'Camera permission was refused.'
+            : "This browser won't open the camera in-app.",
+        )
+        setUseNativeCamera(true)
       }
     },
     [stop],
@@ -124,12 +134,18 @@ export default function CameraCapture({
         )}
 
         {error && (
-          <div className="absolute inset-0 grid place-items-center p-6 text-center text-xs text-rose-300">
-            {error}
+          <div className="absolute inset-0 grid place-items-center bg-rose-950/80 p-6 text-center">
+            <div>
+              <p className="text-3xl">📷</p>
+              <p className="mt-2 text-xs text-rose-300">{error}</p>
+              <p className="mt-1 text-[11px] text-rose-400">
+                Use your phone's camera instead — it works the same.
+              </p>
+            </div>
           </div>
         )}
 
-        {ready && (
+        {ready && !useNativeCamera && (
           <button
             onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))}
             aria-label="Switch camera"
@@ -151,12 +167,36 @@ export default function CameraCapture({
           Cancel
         </button>
 
-        <button
-          onClick={capture}
-          disabled={!ready}
-          aria-label="Take photo"
-          className="size-16 rounded-full border-4 border-rose-300 bg-white transition active:scale-95 disabled:opacity-40"
-        />
+        {useNativeCamera ? (
+          /* `capture` opens the phone's own camera app straight away rather
+             than the photo picker. Only meaningful on mobile; desktop treats
+             it as a normal file input, which is the right fallback anyway. */
+          <label
+            className="grid size-16 cursor-pointer place-items-center rounded-full border-4 border-rose-300 bg-white text-2xl transition active:scale-95"
+            aria-label="Take photo"
+          >
+            📷
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                stop()
+                onCaptured(file, URL.createObjectURL(file))
+              }}
+            />
+          </label>
+        ) : (
+          <button
+            onClick={capture}
+            disabled={!ready}
+            aria-label="Take photo"
+            className="size-16 rounded-full border-4 border-rose-300 bg-white transition active:scale-95 disabled:opacity-40"
+          />
+        )}
 
         <label className="cursor-pointer rounded-xl px-4 py-2 text-xs font-medium text-rose-400 hover:text-rose-200">
           Gallery

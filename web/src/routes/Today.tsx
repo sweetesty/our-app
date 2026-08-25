@@ -6,7 +6,6 @@ import { celebrateReveal } from '../lib/celebrate'
 import NotificationPrompt from '../components/NotificationPrompt'
 import MoodCheckin from '../components/MoodCheckin'
 import MomentStack from '../components/MomentStack'
-import Compliments from '../components/Compliments'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
 
 export default function Today() {
@@ -169,8 +168,6 @@ export default function Today() {
           Deliberately not a scrolling feed: this is two people, not an
           audience. */}
       <MomentStack />
-
-      <Compliments />
 
       <MoodCheckin />
 

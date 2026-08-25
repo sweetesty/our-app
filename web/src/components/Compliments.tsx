@@ -36,9 +36,24 @@ const PRESETS = [
  * and say almost never, so the whole design is about removing the friction —
  * two taps, no typing required.
  */
-export default function Compliments() {
+export default function Compliments({
+  open: controlledOpen,
+  onClose,
+  hideTrigger = false,
+}: {
+  /** Controlled mode: opened from a moment card rather than its own button. */
+  open?: boolean
+  onClose?: () => void
+  hideTrigger?: boolean
+} = {}) {
   const { userId, summary, refresh } = useSession()
-  const [open, setOpen] = useState(false)
+  const [selfOpen, setSelfOpen] = useState(false)
+
+  const open = controlledOpen ?? selfOpen
+  const setOpen = (v: boolean) => {
+    if (controlledOpen === undefined) setSelfOpen(v)
+    else if (!v) onClose?.()
+  }
   const [history, setHistory] = useState<Compliment[]>([])
   const [reactions, setReactions] = useState<Record<string, ReactionRow[]>>({})
   const [custom, setCustom] = useState('')
@@ -120,26 +135,28 @@ export default function Compliments() {
 
   return (
     <>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setOpen(true)}
-          className="flex-1 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
-        >
-          Send a Compliment 💕
-        </button>
+      {!hideTrigger && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setOpen(true)}
+            className="flex-1 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
+          >
+            Send a Compliment 💕
+          </button>
 
-        <button
-          onClick={() => void openHistory()}
-          className="relative rounded-2xl border border-rose-700/40 bg-rose-900/40 px-4 text-sm text-rose-200 transition hover:bg-rose-900"
-        >
-          💌
-          {unread > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-pink-500 text-[10px] font-bold text-white">
-              {unread}
-            </span>
-          )}
-        </button>
-      </div>
+          <button
+            onClick={() => void openHistory()}
+            className="relative rounded-2xl border border-rose-700/40 bg-rose-900/40 px-4 text-sm text-rose-200 transition hover:bg-rose-900"
+          >
+            💌
+            {unread > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-pink-500 text-[10px] font-bold text-white">
+                {unread}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* picker */}
       <Modal open={open} onClose={() => setOpen(false)} title={`Tell ${partnerName} 💕`}>
