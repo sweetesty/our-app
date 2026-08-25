@@ -42,7 +42,12 @@ function smtpConfigured(): boolean {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS)
 }
 
-async function sendMail(to: string, subject: string, html: string): Promise<void> {
+async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  replyTo?: string,
+): Promise<void> {
   const client = new SMTPClient({
     connection: {
       hostname: SMTP_HOST,
@@ -54,7 +59,16 @@ async function sendMail(to: string, subject: string, html: string): Promise<void
   })
 
   try {
-    await client.send({ from: FROM, to, subject, html })
+    await client.send({
+      from: FROM,
+      to,
+      subject,
+      html,
+      // Everything is sent from one mailbox, so without this a reply would go
+      // back to the app's own address — or, when partners write to each other,
+      // to the recipient themselves. Point it at whoever wrote the letter.
+      ...(replyTo ? { replyTo } : {}),
+    })
   } finally {
     // Leaving the connection open would keep the isolate alive past the reply.
     await client.close()
@@ -186,15 +200,22 @@ Deno.serve(async (req) => {
 
   const recipientId = event.to_user_id ?? item.recipient_id
 
-  const [{ data: recipientUser }, { data: authorProfile }] = await Promise.all([
-    db.auth.admin.getUserById(recipientId),
-    db.from('profiles').select('display_name').eq('id', item.author_id).single(),
-  ])
+  const [{ data: recipientUser }, { data: authorUser }, { data: authorProfile }] =
+    await Promise.all([
+      db.auth.admin.getUserById(recipientId),
+      db.auth.admin.getUserById(item.author_id),
+      db.from('profiles').select('display_name').eq('id', item.author_id).single(),
+    ])
 
   const to = recipientUser?.user?.email
   if (!to) {
     return Response.json({ sent: 0, reason: 'recipient has no email' })
   }
+
+  // Replying should reach the person who wrote it — unless they are also the
+  // one reading it ("email me a copy"), where a reply-to-self is just noise.
+  const authorEmail = authorUser?.user?.email
+  const replyTo = authorEmail && authorEmail !== to ? authorEmail : undefined
 
   try {
     await sendMail(
@@ -206,6 +227,7 @@ Deno.serve(async (req) => {
         authorName: authorProfile?.display_name ?? 'They',
         hasAttachment: Boolean(contents?.media_path),
       }),
+      replyTo,
     )
   } catch (error) {
     console.error('smtp send failed', error)
