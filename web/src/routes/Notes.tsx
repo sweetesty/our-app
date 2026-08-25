@@ -15,6 +15,7 @@ import {
 } from '../components/ui'
 import { when } from '../lib/format'
 import { signedUrls, uploadMedia } from '../lib/media'
+import Reactions, { type ReactionRow } from '../components/Reactions'
 import { MOODS, type LoveNote, type NoteMood } from '../lib/types'
 
 export default function Notes() {
@@ -28,6 +29,7 @@ export default function Notes() {
   const [moodFilter, setMoodFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [noteReactions, setNoteReactions] = useState<Record<string, ReactionRow[]>>({})
 
   async function toggleFavourite(note: LoveNote) {
     await supabase.rpc('toggle_note_favourite', { note: note.id })
@@ -53,8 +55,20 @@ export default function Notes() {
     const paths = rows.map((n) => n.photo_path).filter((p): p is string => Boolean(p))
     if (paths.length > 0) setPhotoUrls(await signedUrls(paths))
 
+    // Reactions live in one generic table; pull this screen's in a single go.
+    const { data: reacts } = await supabase
+      .from('reactions')
+      .select('target_id, emoji, user_id')
+      .eq('target_kind', 'note')
+
+    const grouped: Record<string, ReactionRow[]> = {}
+    for (const r of (reacts as { target_id: string; emoji: string; user_id: string }[]) ?? []) {
+      ;(grouped[r.target_id] ??= []).push({ emoji: r.emoji, mine: r.user_id === userId })
+    }
+    setNoteReactions(grouped)
+
     setLoading(false)
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     void load()
@@ -258,9 +272,18 @@ export default function Notes() {
               />
             )}
             <p className="whitespace-pre-wrap text-rose-100 italic">{reading.body}</p>
-            <p className="text-xs text-ink-faint">
-              {reading.author_id === userId ? 'You wrote this' : 'They wrote this'} · {when(reading.created_at)}
+            <p className="text-xs text-rose-400">
+              {reading.author_id === userId ? 'You wrote this' : 'They wrote this'} ·{' '}
+              {when(reading.created_at)}
             </p>
+
+            <Reactions
+              targetKind="note"
+              targetId={reading.id}
+              reactions={noteReactions[reading.id] ?? []}
+              onChanged={load}
+            />
+
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" onClick={() => void toggleFavourite(reading)}>
                 {reading.is_favourite ? '⭐ Favourited' : '☆ Favourite'}

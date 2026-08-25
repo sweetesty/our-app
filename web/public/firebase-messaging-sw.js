@@ -15,6 +15,13 @@
 importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js')
 
+// Take over as soon as a new version lands. Without these, the previous worker
+// keeps running until every tab and every installed window is closed — which on
+// a phone can be days. That is why the duplicate-notification fix appeared to
+// do nothing: the old worker was still the one handling the push.
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
+
 firebase.initializeApp({
   apiKey: 'AIzaSyDmMwV5fK9SyZgn1URpqFVxSHnRuUSfdP0',
   authDomain: 'our-app-6c77f.firebaseapp.com',

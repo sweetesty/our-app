@@ -97,8 +97,16 @@ export async function enablePush(): Promise<
     // already claimed the root scope, so hand it an explicit registration.
     const swRegistration = await navigator.serviceWorker.register(
       '/firebase-messaging-sw.js',
-      { scope: '/firebase-cloud-messaging-push-scope' },
+      {
+        scope: '/firebase-cloud-messaging-push-scope',
+        // Bypass the HTTP cache when checking this script, so a fix ships on
+        // the next launch rather than whenever the browser feels like it.
+        updateViaCache: 'none',
+      },
     )
+
+    // Force a check now as well; registration alone reuses an existing worker.
+    void swRegistration.update()
 
     const token = await getToken(m, {
       vapidKey: VAPID_KEY,

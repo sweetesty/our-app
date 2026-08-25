@@ -5,6 +5,7 @@ import { cx, ErrorNote, Loading } from '../components/ui'
 import { celebrateReveal } from '../lib/celebrate'
 import NotificationPrompt from '../components/NotificationPrompt'
 import MoodCheckin from '../components/MoodCheckin'
+import LatestMoment from '../components/LatestMoment'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
 
 export default function Today() {
@@ -162,6 +163,9 @@ export default function Today() {
       {/* Asked here rather than on load: a permission dialog nobody invited
           gets dismissed, and a dismissal is close to permanent. */}
       <NotificationPrompt />
+
+      {/* Their face first — the reason to open the app at all. */}
+      <LatestMoment />
 
       <MoodCheckin />
 
