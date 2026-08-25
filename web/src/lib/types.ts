@@ -33,6 +33,7 @@ export type CoupleStats = {
   compliments_sent: number
   current_streak: number
   longest_streak: number
+  messages_sent: number
 }
 
 export type TodayQuestion = {
@@ -115,6 +116,17 @@ export type LoveNote = {
   read_at: string | null
   created_at: string
   updated_at: string
+}
+
+export type Message = {
+  id: string
+  couple_id: string
+  author_id: string
+  body: string
+  /** Set when this was sent as a reply to a photo. */
+  moment_id: string | null
+  read_at: string | null
+  created_at: string
 }
 
 export type Milestone = {
@@ -210,6 +222,8 @@ export type HomeSummary = {
   unopened_vault?: number
   ready_vault?: number
   unread_notes?: number
+  unread_compliments?: number
+  unread_messages?: number
   latest_nudge?: Nudge | null
 }
 

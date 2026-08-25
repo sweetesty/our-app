@@ -28,10 +28,15 @@ export function badgeSupported(): boolean {
  */
 export function badgeCountFrom(summary: {
   unread_notes?: number
+  unread_messages?: number
   ready_vault?: number
 } | null): number {
   if (!summary) return 0
-  return (summary.unread_notes ?? 0) + (summary.ready_vault ?? 0)
+  return (
+    (summary.unread_notes ?? 0) +
+    (summary.unread_messages ?? 0) +
+    (summary.ready_vault ?? 0)
+  )
 }
 
 export async function setBadge(count: number): Promise<void> {

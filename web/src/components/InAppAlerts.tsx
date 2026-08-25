@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { MOODS, NUDGES, type LoveNote, type Nudge } from '../lib/types'
@@ -33,8 +33,15 @@ const DISMISS_AFTER = 7000
 export default function InAppAlerts() {
   const { summary, userId, coupleId, refresh } = useSession()
   const navigate = useNavigate()
+  const location = useLocation()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const timers = useRef<number[]>([])
+
+  // Announcing a message you are already watching arrive would be absurd, so
+  // the chat screen suppresses its own toasts. Read through a ref for the same
+  // reason as the name — navigating must not tear down the subscription.
+  const pathRef = useRef(location.pathname)
+  pathRef.current = location.pathname
 
   const name = summary?.partner?.display_name ?? 'They'
   // The subscription must not tear down and rebuild every time the partner's
@@ -104,6 +111,29 @@ export default function InAppAlerts() {
           line: `${nameRef.current} sent you a moment.`,
           detail: moment.caption,
           path: '/moments',
+        })
+      })
+      .on('postgres_changes', { ...scope, table: 'milestones' }, ({ new: row }) => {
+        const milestone = row as { id: string; created_by: string | null; title: string; icon: string }
+        if (!milestone.created_by || milestone.created_by === userId) return
+        push({
+          id: milestone.id,
+          emoji: milestone.icon || '🗓️',
+          line: `${nameRef.current} added to your timeline.`,
+          detail: milestone.title,
+          path: '/timeline',
+        })
+      })
+      .on('postgres_changes', { ...scope, table: 'messages' }, ({ new: row }) => {
+        const message = row as { id: string; author_id: string; body: string }
+        if (message.author_id === userId) return
+        if (pathRef.current === '/chat') return
+        push({
+          id: message.id,
+          emoji: '💬',
+          line: `${nameRef.current} says…`,
+          detail: message.body,
+          path: '/chat',
         })
       })
       .on('postgres_changes', { ...scope, table: 'compliments' }, ({ new: row }) => {

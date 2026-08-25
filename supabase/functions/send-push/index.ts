@@ -28,6 +28,8 @@ type PushEvent = {
     | 'reaction'
     | 'compliment'
     | 'milestone'
+    | 'message'
+    | 'memory'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -77,8 +79,16 @@ function pathFor(type: string): string {
       return '/nudges'
     case 'date':
       return '/timeline'
+    case 'moment':
+      // Was missing, so a tapped moment landed on Today — which shows the
+      // latest one, but not the stack they were being told about.
+      return '/moments'
+    case 'message':
+      return '/chat'
+    case 'memory':
+      return '/timeline'
     default:
-      return '/' // answer, mood, joined
+      return '/' // answer, mood, joined, reaction, compliment, milestone
   }
 }
 
@@ -236,6 +246,23 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} sent you a moment 📸`,
       body: event.message ?? 'A glimpse of where they are right now.',
+    }
+  }
+
+  if (event.type === 'memory') {
+    return {
+      title: `${event.sender_name} added to your timeline ${event.kind ?? '🗓️'}`,
+      body: event.message ?? 'Something worth keeping.',
+    }
+  }
+
+  if (event.type === 'message') {
+    return {
+      title: event.sender_name,
+      // Just the message, with no "sent you a message" wrapper — a chat
+      // notification you cannot read at a glance is a chat notification you
+      // have to open, which defeats it.
+      body: event.message ?? 'Said something.',
     }
   }
 

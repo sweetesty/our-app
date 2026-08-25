@@ -8,7 +8,13 @@
 -- Adds moments and compliments, and keeps memories_added for the existing
 -- achievement definitions that reference it by name.
 
-create or replace view public.couple_stats
+-- Dropped rather than replaced: `create or replace view` can only append
+-- columns at the end, so adding moments_sent before current_streak reads to
+-- Postgres as renaming that column and it refuses. Nothing else depends on the
+-- view — sync_achievements queries it, which is not a blocking dependency.
+drop view if exists public.couple_stats;
+
+create view public.couple_stats
 with (security_invoker = true) as
 select
   c.id as couple_id,

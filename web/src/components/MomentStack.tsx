@@ -311,12 +311,19 @@ export default function MomentStack() {
             {/* A compliment belongs on their face, not floating on a home
                 screen — you say it because you are looking at them. */}
             {!mine && (
-              <button
-                onClick={() => setComplimenting(true)}
-                className="w-full rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-2.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
-              >
-                Send a Compliment 💕
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setComplimenting(true)}
+                  className="w-full rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-2.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
+                >
+                  Send a Compliment 💕
+                </button>
+
+                {/* Until now the only replies were an emoji or a preset. A
+                    reply files into the one chat thread carrying this photo's
+                    id, rather than starting a second per-photo comment system. */}
+                <ReplyBox momentId={current.id} partnerName={partnerName} />
+              </div>
             )}
           </div>
         </div>
@@ -363,6 +370,60 @@ export default function MomentStack() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Reply to a photo without leaving it.
+ *
+ * The message carries the moment's id, so it lands in the one chat thread with
+ * the picture attached rather than in a separate per-photo comment table. Reply
+ * here, read it there.
+ */
+function ReplyBox({ momentId, partnerName }: { momentId: string; partnerName: string }) {
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function send() {
+    const body = inputRef.current?.value.trim()
+    if (!body || sending) return
+
+    setSending(true)
+    const { error } = await supabase.rpc('send_message', {
+      message_body: body,
+      about_moment: momentId,
+    })
+    setSending(false)
+    if (error) return
+
+    if (inputRef.current) inputRef.current.value = ''
+    setSent(true)
+    window.setTimeout(() => setSent(false), 2400)
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        defaultValue=""
+        maxLength={500}
+        placeholder={sent ? 'Sent ✓' : `Reply to ${partnerName}…`}
+        onKeyDown={(e) => e.key === 'Enter' && void send()}
+        // Dragging inside the field would swipe the card away mid-sentence.
+        onPointerDown={(e) => e.stopPropagation()}
+        className="min-w-0 flex-1 rounded-full border border-rose-700/40 bg-rose-950/60 px-4 py-2 text-xs text-rose-50 placeholder-rose-400/60 focus:border-pink-500 focus:outline-none"
+      />
+      <button
+        onClick={() => void send()}
+        disabled={sending}
+        aria-label="Send reply"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-800/70 text-sm text-rose-100 transition active:scale-95 disabled:opacity-50"
+      >
+        ↑
+      </button>
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { cx } from './ui'
 const NAV = [
   { to: '/', icon: '✨', label: 'Today', end: true },
   { to: '/moments', icon: '📸', label: 'Moments' },
+  { to: '/chat', icon: '💬', label: 'Chat' },
   { to: '/cards', icon: '🃏', label: 'Cards' },
   { to: '/notes', icon: '📌', label: 'Notes' },
   { to: '/timeline', icon: '🗓️', label: 'Timeline' },
@@ -76,7 +77,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
       {/* Main Navigation Tabs */}
       <nav className="flex overflow-x-auto gap-2 px-6 py-3 bg-rose-950/40 border-b border-rose-800/30 scrollbar-none">
         {NAV.map((item) => (
-          <NavItem key={item.to} {...item} />
+          <NavItem
+            key={item.to}
+            {...item}
+            // Unread counts belong on the tab, not only on the app icon —
+            // the icon badge is invisible once you are already inside.
+            badge={
+              item.to === '/chat'
+                ? (summary?.unread_messages ?? 0)
+                : item.to === '/notes'
+                  ? (summary?.unread_notes ?? 0)
+                  : 0
+            }
+          />
         ))}
       </nav>
 
@@ -97,11 +110,13 @@ function NavItem({
   icon,
   label,
   end,
+  badge = 0,
 }: {
   to: string
   icon: string
   label: string
   end?: boolean
+  badge?: number
 }) {
   return (
     <NavLink
@@ -118,6 +133,11 @@ function NavItem({
     >
       <span>{icon}</span>
       <span>{label}</span>
+      {badge > 0 && (
+        <span className="grid min-w-5 place-items-center rounded-full bg-pink-500 px-1.5 text-[0.65rem] font-bold text-white">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
     </NavLink>
   )
 }

@@ -64,7 +64,11 @@ export default function Cards() {
     setDrawing(false)
     if (rpcError) return setError(errorMessage(rpcError))
 
-    const drawn = (data as Card[])?.[0] ?? null
+    // draw_card is `returns public.cards` — a single composite, so PostgREST
+    // sends back an object, not an array. Reading data[0] made every deck
+    // report itself empty no matter how many cards were in it. Handle both
+    // shapes so this survives the function being changed to setof later.
+    const drawn = (Array.isArray(data) ? data[0] : data) as Card | null
     if (!drawn) setExhausted(true)
     else setCard(drawn)
   }
