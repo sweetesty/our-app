@@ -57,16 +57,27 @@ messaging.onBackgroundMessage(() => {
 // fcm_options.link; this covers the case where APP_URL is unset server-side, so
 // no link was attached and the tap would otherwise do nothing.
 self.addEventListener('notificationclick', (event) => {
-  if (event.notification.data?.FCM_MSG) return // FCM is handling it
+  // Bail only if FCM actually has a link to follow. The old check bailed
+  // whenever FCM had touched the payload at all — which is always — so when
+  // APP_URL was unset server-side, nothing had a link and nothing handled the
+  // tap either. Notifications simply did nothing when clicked.
+  const fcmLink =
+    event.notification.data?.FCM_MSG?.notification?.click_action ||
+    event.notification.data?.FCM_MSG?.fcmOptions?.link
+  if (fcmLink) return
 
   event.notification.close()
 
-  const type = event.notification.data?.type
+  // FCM nests the original data payload when it handles the message itself.
+  const data = event.notification.data?.FCM_MSG?.data ?? event.notification.data ?? {}
+  const type = data.type
+
   const path =
     type === 'vault' ? '/vault'
     : type === 'note' ? '/notes'
     : type === 'nudge' ? '/nudges'
     : type === 'date' ? '/timeline'
+    : type === 'moment' ? '/moments'
     : '/'
 
   event.waitUntil(
