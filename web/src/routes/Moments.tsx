@@ -1,87 +1,44 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
-import { cx, ErrorNote, Loading, Modal } from '../components/ui'
+import { cx, ErrorNote, Modal } from '../components/ui'
 import CameraCapture from '../components/CameraCapture'
-import Reactions, { type ReactionRow } from '../components/Reactions'
-import { signedUrls, uploadMedia } from '../lib/media'
-import { ago } from '../lib/format'
-
-type Moment = {
-  id: string
-  author_id: string
-  storage_path: string
-  media_type: string
-  caption: string | null
-  expires_at: string | null
-  created_at: string
-}
+import MomentStack from '../components/MomentStack'
+import { uploadMedia } from '../lib/media'
 
 /**
  * Moments — a photo sent straight to your person.
  *
- * Not a separate photo store: every moment is read by memories() too, so one
- * photo flows moment → feed → memory → album without ever being copied.
+ * This screen is now just the sending half; MomentStack owns viewing, which
+ * keeps one swipe implementation shared with Today and Memories rather than a
+ * feed here and a stack elsewhere.
+ *
+ * A moment is not a separate photo store either: memories() reads them
+ * alongside everything else, so one photo flows moment → memory → album
+ * without being copied.
  */
 export default function Moments() {
   const { coupleId, userId, summary, refresh } = useSession()
-  const [moments, setMoments] = useState<Moment[]>([])
-  const [reactions, setReactions] = useState<Record<string, ReactionRow[]>>({})
-  const [urls, setUrls] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
   const [composing, setComposing] = useState(false)
   const [pending, setPending] = useState<{ file: File; preview: string } | null>(null)
-  const captionRef = useRef<HTMLInputElement>(null)
   const [disappears, setDisappears] = useState(false)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const load = useCallback(async () => {
-    const [{ data: rows, error: qErr }, { data: reacts }] = await Promise.all([
-      supabase.from('moments').select('*').order('created_at', { ascending: false }).limit(100),
-      supabase.from('reactions').select('target_id, emoji, user_id').eq('target_kind', 'moment'),
-    ])
+  // Uncontrolled: a controlled field re-rendered this screen on every letter,
+  // which on iOS dropped focus and closed the keyboard after each character.
+  const captionRef = useRef<HTMLInputElement>(null)
 
-    if (qErr) {
-      setError(errorMessage(qErr))
-      setLoading(false)
-      return
-    }
+  const partnerName = summary?.partner?.display_name ?? 'them'
 
-    const list = (rows as Moment[]) ?? []
-    setMoments(list)
-
-    const grouped: Record<string, ReactionRow[]> = {}
-    for (const r of (reacts as { target_id: string; emoji: string; user_id: string }[]) ?? []) {
-      ;(grouped[r.target_id] ??= []).push({ emoji: r.emoji, mine: r.user_id === userId })
-    }
-    setReactions(grouped)
-
-    setUrls(await signedUrls(list.map((m) => m.storage_path)))
-    setLoading(false)
-  }, [userId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  // New moments arrive over the socket, so their phone lights up and yours
-  // shows the photo without a refresh.
-  useEffect(() => {
-    if (!coupleId) return
-    const channel = supabase
-      .channel(`moments:${coupleId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'moments', filter: `couple_id=eq.${coupleId}` },
-        () => void load(),
-      )
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [coupleId, load])
+  function closeComposer() {
+    if (pending) URL.revokeObjectURL(pending.preview)
+    setPending(null)
+    setComposing(false)
+    setError('')
+  }
 
   async function send() {
     if (!pending || !coupleId || !userId) return
@@ -108,7 +65,7 @@ export default function Moments() {
       if (captionRef.current) captionRef.current.value = ''
       setDisappears(false)
       setComposing(false)
-      await load()
+      setReloadKey((k) => k + 1) // nudge the stack to refetch
       await refresh()
     } catch (err) {
       setError(errorMessage(err))
@@ -117,18 +74,9 @@ export default function Moments() {
     }
   }
 
-  async function remove(id: string) {
-    await supabase.from('moments').delete().eq('id', id)
-    await load()
-  }
-
-  if (loading) return <Loading label="Loading your moments…" />
-
-  const partnerName = summary?.partner?.display_name ?? 'them'
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-lg font-bold text-white">📸 Moments</h3>
         <button
           onClick={() => setComposing(true)}
@@ -140,81 +88,13 @@ export default function Moments() {
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      {moments.length === 0 ? (
-        <button
-          onClick={() => setComposing(true)}
-          className="w-full rounded-3xl border border-dashed border-rose-700/40 bg-rose-900/20 p-10 text-center"
-        >
-          <p className="text-3xl">📷</p>
-          <p className="mt-2 text-sm text-rose-200">Show {partnerName} where you are</p>
-          <p className="mt-1 text-xs text-rose-400">
-            A photo, straight to their phone. No feed, no likes, no one else.
-          </p>
-        </button>
-      ) : (
-        <div className="space-y-4">
-          {moments.map((m) => {
-            const mine = m.author_id === userId
-            return (
-              <article
-                key={m.id}
-                className="overflow-hidden rounded-3xl border border-rose-700/40 bg-rose-900/30"
-              >
-                {urls[m.storage_path] && (
-                  <img
-                    src={urls[m.storage_path]}
-                    alt={m.caption ?? ''}
-                    loading="lazy"
-                    className="aspect-square w-full object-cover"
-                  />
-                )}
+      <MomentStack key={reloadKey} />
 
-                <div className="space-y-2 p-4">
-                  {m.caption && (
-                    <p className="text-sm text-rose-100">{m.caption}</p>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-rose-400">
-                      {mine ? 'You' : partnerName} · {ago(m.created_at)}
-                      {m.expires_at && ' · disappears'}
-                    </p>
-                    {mine && (
-                      <button
-                        onClick={() => void remove(m.id)}
-                        className="text-xs text-rose-500 hover:text-rose-300"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-
-                  <Reactions
-                    targetKind="moment"
-                    targetId={m.id}
-                    reactions={reactions[m.id] ?? []}
-                    onChanged={load}
-                  />
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-
-      <Modal
-        open={composing}
-        onClose={() => {
-          if (pending) URL.revokeObjectURL(pending.preview)
-          setPending(null)
-          setComposing(false)
-        }}
-        title="Send a moment 📸"
-      >
+      <Modal open={composing} onClose={closeComposer} title="Send a moment 📸">
         {!pending ? (
           <CameraCapture
             onCaptured={(file, preview) => setPending({ file, preview })}
-            onCancel={() => setComposing(false)}
+            onCancel={closeComposer}
           />
         ) : (
           <div className="space-y-3">
@@ -224,11 +104,6 @@ export default function Moments() {
               className="aspect-square w-full rounded-3xl object-cover"
             />
 
-            {/* Uncontrolled on purpose. As a controlled input, every keystroke
-                re-rendered this whole screen — realtime subscription, image
-                preview and all — and on iOS that was enough to drop focus and
-                close the keyboard after each letter. The value is read from the
-                ref when sending, so typing touches nothing but the field. */}
             <input
               ref={captionRef}
               defaultValue=""

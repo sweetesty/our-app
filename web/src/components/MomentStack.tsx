@@ -91,16 +91,17 @@ export default function MomentStack() {
    * the next card is already sitting behind.
    */
   function goto(next: number, direction: 1 | -1) {
-    if (next < 0 || next >= moments.length) {
-      setDx(0) // nothing there; spring back
-      return
-    }
+    // Wrap around rather than dead-ending. With only a handful of moments,
+    // hitting an invisible wall on the last card feels broken; looping keeps
+    // the stack browsable in one direction.
+    const wrapped =
+      next < 0 ? moments.length - 1 : next >= moments.length ? 0 : next
 
     setFlying(true)
     setDx(direction * window.innerWidth)
 
     window.setTimeout(() => {
-      setIndex(next)
+      setIndex(wrapped)
       setFlying(false)
       setDx(0)
     }, 260)
@@ -138,6 +139,14 @@ export default function MomentStack() {
     else goto(index - 1, 1)
   }
 
+  async function remove(id: string) {
+    await supabase.from('moments').delete().eq('id', id)
+    // Step back if the last card just went, so the index cannot dangle past
+    // the end of the list.
+    setIndex((i) => Math.max(0, Math.min(i, moments.length - 2)))
+    await load()
+  }
+
   async function quickReact(momentId: string, emoji: string) {
     await supabase.rpc('toggle_reaction', {
       kind: 'moment',
@@ -150,7 +159,9 @@ export default function MomentStack() {
   if (loading || moments.length === 0) return null
 
   const current = moments[index]
-  const next = moments[index + 1]
+  // Wraps too, so the card behind is never empty on the last one — but only
+  // when there is genuinely another photo, or it would peek at itself.
+  const next = moments.length > 1 ? moments[(index + 1) % moments.length] : undefined
   const partnerName = summary?.partner?.display_name ?? 'They'
   const mine = current.author_id === userId
   const expiry = expiresIn(current.expires_at)
@@ -231,11 +242,21 @@ export default function MomentStack() {
               <p className="text-xs text-rose-400">
                 {mine ? 'You' : partnerName} · {ago(current.created_at)}
               </p>
-              {expiry && (
-                <span className="rounded-full bg-pink-500/20 px-2 py-0.5 text-[10px] text-pink-200">
-                  ⏳ {expiry}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {expiry && (
+                  <span className="rounded-full bg-pink-500/20 px-2 py-0.5 text-[10px] text-pink-200">
+                    ⏳ {expiry}
+                  </span>
+                )}
+                {mine && (
+                  <button
+                    onClick={() => void remove(current.id)}
+                    className="text-[11px] text-rose-500 transition-colors hover:text-rose-300"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* one-tap reactions, then the full picker */}
