@@ -15,6 +15,7 @@ import {
 } from '../components/ui'
 import { untilUnlock, when } from '../lib/format'
 import { signedUrl, uploadMedia } from '../lib/media'
+import VoiceRecorder from '../components/VoiceRecorder'
 import type { VaultContents, VaultItem } from '../lib/types'
 
 const CONDITION_PRESETS = [
@@ -503,7 +504,11 @@ function Composer({
           />
         </Field>
 
-        <Field label="Attach something" hint="A photo, a voice note, a video. Optional.">
+        <Field label="Say it out loud" hint="Optional — sometimes a voice carries what typing can't.">
+          <VoiceRecorder onRecorded={setFile} />
+        </Field>
+
+        <Field label="Or attach a photo or video">
           <input
             type="file"
             accept="image/*,audio/*,video/*"

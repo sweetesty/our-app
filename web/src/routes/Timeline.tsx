@@ -15,6 +15,7 @@ import {
 } from '../components/ui'
 import { longDate } from '../lib/format'
 import { removeMedia, signedUrls, uploadMedia } from '../lib/media'
+import VoiceRecorder from '../components/VoiceRecorder'
 import type { Milestone, MilestoneMedia } from '../lib/types'
 
 const ICONS = ['💫', '💌', '📞', '🌙', '🏡', '✈️', '🥂', '🎂', '💍', '🌊', '🎶', '☕']
@@ -366,13 +367,30 @@ function Composer({
           </Field>
         )}
 
-        <Field label="Add photos, voice notes, video">
+        <Field label="Record how you remember it" hint="Optional. Your voice, on the page.">
+          <VoiceRecorder
+            onRecorded={(voice) =>
+              setFiles((current) => {
+                // Replace any previous take rather than stacking them up.
+                const withoutVoice = current.filter((f) => !f.name.startsWith('voice-note.'))
+                return voice ? [...withoutVoice, voice] : withoutVoice
+              })
+            }
+          />
+        </Field>
+
+        <Field label="Add photos or video">
           <input
             ref={fileInput}
             type="file"
             multiple
             accept="image/*,audio/*,video/*"
-            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            onChange={(e) =>
+              setFiles((current) => [
+                ...current.filter((f) => f.name.startsWith('voice-note.')),
+                ...Array.from(e.target.files ?? []),
+              ])
+            }
             className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-full file:border-0 file:bg-raised file:px-4 file:py-2 file:text-sm file:text-ink-soft hover:file:bg-line"
           />
           {files.length > 0 && (
