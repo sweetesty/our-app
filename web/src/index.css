@@ -1,0 +1,274 @@
+@import 'tailwindcss';
+
+/* ===========================================================================
+   Our Little World
+   ---------------------------------------------------------------------------
+   Ported from app.html. The prototype uses stock Tailwind rose/pink, so there
+   is no bespoke palette to maintain — but the app's fifteen screens were built
+   against semantic token names (ink / surface / lav / blush). Rather than
+   hand-editing every className, those names are remapped here onto the rose
+   scale. One file changes the whole look, and screens can be restyled to the
+   prototype's exact layout one at a time.
+   =========================================================================== */
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 1.5rem;
+
+  /* --- surfaces ---------------------------------------------------------- */
+  --color-canvas: #1a0b0f;
+  --color-sunken: #240d14;
+  --color-surface: #3b1220;
+  --color-raised: #4a1626;
+  --color-line: #9f1239;
+  --color-scrim: #000000;
+
+  /* --- text -------------------------------------------------------------- */
+  --color-ink: #fff1f2;
+  --color-ink-soft: #ffe4e6;
+  --color-ink-muted: #fda4af;
+  --color-ink-faint: #fb7185;
+
+  /* --- accents ----------------------------------------------------------- */
+  --color-lav-300: #f9a8d4;
+  --color-lav-400: #ec4899;
+  --color-lav-500: #db2777;
+  --color-lav-600: #be185d;
+  --color-on-accent: #ffffff;
+
+  --color-blush-300: #fbcfe8;
+  --color-blush-400: #f472b6;
+  --color-blush-500: #ec4899;
+  --color-blush-600: #f9a8d4;
+
+  --color-sage: #34d399;
+  --color-violet: #c084fc;
+  --color-flame: #fb7185;
+
+  --animate-rise: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-unseal: unseal 0.7s cubic-bezier(0.2, 0.9, 0.15, 1) both;
+  --animate-pulse-soft: pulse-soft 2.4s ease-in-out infinite;
+  --animate-float: float 9s ease-in-out infinite;
+  --animate-drift-up: drift-up 2.2s ease-out forwards;
+  --animate-seal-break: seal-break 0.75s cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes unseal {
+  0%   { opacity: 0; transform: scale(0.95); filter: blur(6px); }
+  60%  { opacity: 1; transform: scale(1.01); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.86; transform: scale(1.04); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+/* The moment both answers are in. Hearts drift up off the card and fade. */
+@keyframes drift-up {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.6) rotate(0deg); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-90px) scale(1.15) rotate(var(--spin, 12deg)); }
+}
+
+/* The seal itself giving way before the answer shows. */
+@keyframes seal-break {
+  0%   { opacity: 1; transform: scale(1); }
+  40%  { opacity: 1; transform: scale(1.18) rotate(-8deg); }
+  100% { opacity: 0; transform: scale(0.4) rotate(14deg); }
+}
+
+/* ---------------------------------------------------------------------------
+   base
+   --------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: rgb(159 18 57 / 0.6) transparent;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    color: #fff1f2;
+    background: linear-gradient(to bottom right, #4c0519, #881337, #500724);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+
+  h1, h2, h3 { font-weight: 700; }
+
+  ::selection {
+    background: #f43f5e;
+    color: #ffffff;
+  }
+
+  :focus-visible {
+    outline: 2px solid #ec4899;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(159 18 57 / 0.5);
+    border-radius: 99px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   components
+   --------------------------------------------------------------------------- */
+
+@layer components {
+  .glass {
+    background: rgb(255 255 255 / 0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .dark-glass {
+    background: rgb(26 11 15 / 0.75);
+    backdrop-filter: blur(12px);
+  }
+
+  /* The prototype's standard panel. */
+  .surface {
+    position: relative;
+    background: rgb(136 19 55 / 0.3);
+    border: 1px solid rgb(159 18 57 / 0.4);
+    border-radius: 1.5rem;
+    box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.8);
+  }
+
+  /* The hero panel — the daily question card and anything else that leads. */
+  .paper {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(to bottom right, rgb(136 19 55 / 0.6), rgb(76 5 25 / 0.85));
+    border: 1px solid rgb(159 18 57 / 0.45);
+    border-radius: 1.5rem;
+    box-shadow: 0 22px 45px -25px rgb(0 0 0 / 0.9);
+  }
+
+  /* Soft pink bloom in the corner of a lead card, straight from the mockup. */
+  .paper::after {
+    content: '';
+    position: absolute;
+    top: -2rem;
+    right: -2rem;
+    width: 8rem;
+    height: 8rem;
+    border-radius: 999px;
+    background: rgb(236 72 153 / 0.12);
+    filter: blur(32px);
+    pointer-events: none;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+  }
+
+  .label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fda4af;
+  }
+
+  .script { font-style: italic; }
+
+  .hairline { border-color: rgb(159 18 57 / 0.4); }
+
+  /* Scrapbook leftovers, neutralised. Screens still reference these; they now
+     resolve to nothing rather than throwing off the rose layout. */
+  .taped::before, .taped-left::before, .taped-right::before { content: none; }
+  .tilt-a, .tilt-b, .tilt-c { transform: none; }
+  .ruled { background-image: none; }
+
+  .polaroid {
+    position: relative;
+    background: rgb(76 5 25 / 0.6);
+    border: 1px solid rgb(159 18 57 / 0.5);
+    padding: 0.4rem 0.4rem 1.6rem;
+    border-radius: 0.75rem;
+  }
+
+  .polaroid img { display: block; width: 100%; border-radius: 0.35rem; }
+
+  .stamp {
+    border: 1px solid rgb(236 72 153 / 0.35);
+    border-radius: 999px;
+  }
+
+  .unearned { filter: grayscale(1); opacity: 0.4; }
+
+  /* --- card flip (kept: the deck genuinely uses it) ----------------------- */
+
+  .flip-scene { perspective: 1400px; }
+
+  .flip-card {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.25, 0.9, 0.25, 1);
+  }
+
+  .flip-card.is-flipped { transform: rotateY(180deg); }
+
+  .flip-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .flip-back {
+    position: absolute;
+    inset: 0;
+    transform: rotateY(180deg);
+  }
+
+  .card-back {
+    background-color: #500724;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgb(236 72 153 / 0.5) 1.5px, transparent 1.6px);
+    background-size: 18px 18px;
+    border: 1px solid rgb(159 18 57 / 0.5);
+  }
+
+  .fan { position: relative; }
+  .fan-card { transform-origin: bottom center; transition: transform 0.35s ease; }
+  .fan:hover .fan-card { transform: rotate(var(--fan-open)) translateY(-6px); }
+
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

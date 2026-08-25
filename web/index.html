@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Single value: the rose design is dark-only, so there is no light
+         variant for the browser chrome to match. -->
+    <meta name="theme-color" content="#1a0b0f" />
+
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <!-- iOS ignores the manifest icons and composites transparency against
+         black, so this one is opaque and supplied separately. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Home-screen behaviour. iOS only grants push to an installed PWA, and
+         only reads these tags — not the web app manifest. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Our World" />
+    <!-- The landing page is public and should be findable. Everything behind
+         sign-in is protected by row-level security, not by hiding the URL. -->
+    <meta
+      name="description"
+      content="Our Little World is a private app with room for exactly two people. A daily question neither of you can read first, letters that open later, and a scrapbook only you two can see."
+    />
+    <meta property="og:title" content="Our Little World — a world for just us" />
+    <meta
+      property="og:description"
+      content="An app with room for exactly two people. No profiles, no followers, no feed."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/logo-mark.png" />
+    <title>Our Little World 💌</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gradient-to-br from-rose-950 via-rose-900 to-pink-950 min-h-screen text-rose-50 flex flex-col selection:bg-rose-500 selection:text-white font-sans">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
