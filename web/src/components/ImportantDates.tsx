@@ -112,6 +112,12 @@ export default function ImportantDates() {
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="text-2xl">{d.icon}</span>
                   <div className="min-w-0">
+                    {/* The kind was only implied by the emoji, so a row read
+                        "March 10th" with no clue whose birthday it was. */}
+                    <p className="text-[10px] font-semibold tracking-wider text-pink-300 uppercase">
+                      {KINDS.find((k) => k.key === d.kind)?.label ?? 'Date'}
+                      {d.recurs_annually && ' · every year'}
+                    </p>
                     <p className="truncate text-sm font-bold text-white">
                       {d.title}
                       {d.days_away === 0 && d.years_count ? (
@@ -245,16 +251,23 @@ function AddDate({
           </div>
         </Field>
 
-        <Field label="What is it?">
+        <Field
+          label={kind === 'birthday' ? 'Whose birthday?' : 'What is it?'}
+          hint="Name it so you both know at a glance — not the date, that's below."
+        >
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={
               kind === 'birthday'
-                ? 'His birthday'
-                : kind === 'trip'
-                  ? 'Lagos trip'
-                  : 'The day we met'
+                ? "Zahir's birthday"
+                : kind === 'anniversary'
+                  ? 'Our anniversary'
+                  : kind === 'trip'
+                    ? 'Lagos trip'
+                    : kind === 'first_date'
+                      ? 'The day we met'
+                      : 'What happens that day'
             }
             maxLength={60}
           />

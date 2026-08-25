@@ -336,17 +336,29 @@ export function Modal({
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // onClose is nearly always an inline arrow, so it is a new value on every
+  // render of the parent. Holding it in a ref keeps it out of the effect's
+  // dependencies — otherwise every keystroke re-ran the effect, which called
+  // panelRef.focus() and yanked focus off the input mid-typing. On a phone that
+  // closed the keyboard on the first character.
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+
+    // Focus the panel once, on open, so screen readers land inside the dialog.
     panelRef.current?.focus()
+
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

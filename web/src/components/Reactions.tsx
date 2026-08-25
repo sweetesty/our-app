@@ -20,7 +20,7 @@ export default function Reactions({
   onChanged,
   compact = false,
 }: {
-  targetKind: 'moment' | 'note' | 'card_play' | 'milestone' | 'answer'
+  targetKind: 'moment' | 'note' | 'card_play' | 'milestone' | 'answer' | 'compliment'
   targetId: string
   reactions: ReactionRow[]
   onChanged: () => void | Promise<void>
