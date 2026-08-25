@@ -47,7 +47,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
   const type = event.notification.data?.type
-  const path = type === 'answer' ? '/' : '/nudges'
+  const path = type === 'answer' ? '/' : type === 'vault' ? '/vault' : '/nudges'
 
   event.waitUntil(
     clients

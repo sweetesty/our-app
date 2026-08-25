@@ -201,6 +201,20 @@ function Reader({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [opening, setOpening] = useState(false)
+  const [emailing, setEmailing] = useState(false)
+  const [emailed, setEmailed] = useState(false)
+
+  async function emailCopy() {
+    if (!item) return
+    setEmailing(true)
+    setError('')
+    // The RPC refuses if the letter is still sealed, so this can never become
+    // a way to read one early via your inbox.
+    const { error: rpcError } = await supabase.rpc('email_vault_item', { item: item.id })
+    setEmailing(false)
+    if (rpcError) setError(errorMessage(rpcError))
+    else setEmailed(true)
+  }
 
   const fetchContents = useCallback(async (itemId: string) => {
     // RLS returns nothing here unless you wrote it, or it is genuinely unlocked.
@@ -309,11 +323,18 @@ function Reader({
           </div>
         )}
 
-        {mine && (
-          <Button variant="danger" size="sm" onClick={() => void destroy()}>
-            Delete this letter
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {showContents && (
+            <Button variant="ghost" size="sm" loading={emailing} onClick={() => void emailCopy()}>
+              {emailed ? 'Sent to your inbox ✓' : '📧 Email me a copy'}
+            </Button>
+          )}
+          {mine && (
+            <Button variant="danger" size="sm" onClick={() => void destroy()}>
+              Delete this letter
+            </Button>
+          )}
+        </div>
       </div>
     </Modal>
   )
@@ -342,6 +363,7 @@ function Composer({
   const [unlockAt, setUnlockAt] = useState('')
   const [condition, setCondition] = useState(CONDITION_PRESETS[0])
   const [file, setFile] = useState<File | null>(null)
+  const [emailIt, setEmailIt] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -350,6 +372,7 @@ function Composer({
     setLabel('')
     setBody('')
     setFile(null)
+    setEmailIt(false)
     setError('')
     const soon = new Date()
     soon.setMonth(soon.getMonth() + 1)
@@ -373,6 +396,9 @@ function Composer({
           unlock_type: mode,
           unlock_at: mode === 'date' ? new Date(`${unlockAt}T00:00:00`).toISOString() : null,
           unlock_condition: mode === 'condition' ? condition : null,
+          // Only meaningful for date-locked letters — a condition-locked one
+          // opens whenever they choose, so there is no moment to email on.
+          email_on_unlock: mode === 'date' ? emailIt : false,
         })
         .select()
         .single()
@@ -485,6 +511,26 @@ function Composer({
             className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-full file:border-0 file:bg-raised file:px-4 file:py-2 file:text-sm file:text-ink-soft hover:file:bg-line"
           />
         </Field>
+
+        {mode === 'date' && (
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-rose-700/40 bg-rose-900/20 p-4">
+            <input
+              type="checkbox"
+              checked={emailIt}
+              onChange={(e) => setEmailIt(e.target.checked)}
+              className="mt-0.5 size-4 accent-pink-500"
+            />
+            <span className="text-xs leading-relaxed text-rose-300">
+              <span className="font-semibold text-white">
+                Also email it to them when it opens
+              </span>
+              <br />
+              So it lands even if they don't open the app that day. Note that an
+              email leaves this app — it sits in their inbox, where it isn't
+              protected the way it is here.
+            </span>
+          </label>
+        )}
 
         {error && <ErrorNote>{error}</ErrorNote>}
         <Button className="w-full" loading={busy} disabled={!label.trim()} onClick={() => void save()}>

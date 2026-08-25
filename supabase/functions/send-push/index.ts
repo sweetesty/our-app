@@ -16,12 +16,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 type PushEvent = {
-  type: 'nudge' | 'answer'
+  type: 'nudge' | 'answer' | 'vault'
   couple_id: string
   sender_id: string
   sender_name: string
   kind?: string
   message?: string | null
+  /** vault only: the label on the outside of the letter. */
+  label?: string | null
 }
 
 /** Mirrors NUDGES in web/src/lib/types.ts and kNudges in mobile/lib/models.dart. */
@@ -159,6 +161,17 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
+  if (event.type === 'vault') {
+    return {
+      title: 'Something just unlocked 🎁',
+      // The label is the whole point — "Open on your birthday" says more than
+      // any wording we could invent around it.
+      body: event.label
+        ? `${event.label} — ${event.sender_name} left it for you.`
+        : `${event.sender_name} left you a letter, and it's ready.`,
+    }
+  }
+
   const copy = NUDGE_COPY[event.kind ?? ''] ?? {
     emoji: '❤️',
     line: 'is thinking of you',
@@ -291,6 +304,9 @@ Deno.serve(async (req) => {
               token: device.token,
               notification: { title, body },
               // Data travels with it so a tap can open the right screen.
+              // The service worker reads `type` on click to pick a screen.
+              // (A webpush.fcm_options.link would need an absolute HTTPS URL
+              // and would override that handler, so routing stays in one place.)
               data: {
                 type: event.type,
                 kind: event.kind ?? '',
