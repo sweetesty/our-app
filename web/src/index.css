@@ -236,22 +236,6 @@
     max-width: 100vw;
   }
 
-  /* iOS zooms the whole page in the moment you focus a field whose text is
-     smaller than 16px — and it does not zoom back out when you leave it. That
-     is why the chat kept ending up magnified with a strip cut off the side:
-     the composer is text-sm, so tapping it to type was the trigger every time.
-     There is no way to refuse the zoom short of banning pinch-zoom entirely,
-     which is worse. The fix is to not have a small field on a touch screen.
-
-     Coarse pointers only, so the desktop layout keeps its proportions. */
-  @media (pointer: coarse) {
-    input:not([type='checkbox']):not([type='radio']),
-    textarea,
-    select {
-      font-size: 16px;
-    }
-  }
-
   /* A long word, a pasted link or an unbroken run of emoji can push a card
      wider than the screen on its own. Nothing in a two-person app is worth a
      horizontal scrollbar. */
@@ -444,5 +428,29 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   No field smaller than 16px on a touch screen
+   ---------------------------------------------------------------------------
+   iOS zooms the whole page in the moment you focus a field whose text is under
+   16px, and does not zoom back out when you leave it. The chat composer is
+   text-sm, so tapping it to type was the trigger every single time — that is
+   the zoom, not the layout.
+
+   Both the position and the !important are load-bearing, and the first attempt
+   at this had neither. Inside @layer base this loses to Tailwind's utilities,
+   which are a later layer; and a bare `textarea` loses to `.text-sm` on
+   specificity whatever the order. Unlayered and important is what it takes to
+   beat a utility class, and the field's exact size is not worth the zoom.
+
+   Coarse pointers only, so the desktop layout keeps its proportions.
+   --------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }
