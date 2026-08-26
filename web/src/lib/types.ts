@@ -151,6 +151,8 @@ export type Milestone = {
   description: string | null
   happened_on: string
   icon: string
+  /** Free text, not coordinates — no third party ever sees where you've been. */
+  location: string | null
   created_by: string | null
   created_at: string
 }

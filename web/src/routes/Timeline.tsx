@@ -120,6 +120,9 @@ export default function Timeline() {
                 {m.description && (
                   <p className="mt-1 text-xs leading-relaxed text-rose-200">{m.description}</p>
                 )}
+                {m.location && (
+                  <p className="mt-1 text-xs text-rose-400">📍 {m.location}</p>
+                )}
 
                 {(media[m.id]?.length ?? 0) > 0 && (
                   <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -236,6 +239,7 @@ function Composer({
   const [description, setDescription] = useState('')
   const [happenedOn, setHappenedOn] = useState('')
   const [icon, setIcon] = useState('💫')
+  const [location, setLocation] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -247,6 +251,7 @@ function Composer({
     setDescription(milestone?.description ?? '')
     setHappenedOn(milestone?.happened_on ?? new Date().toISOString().slice(0, 10))
     setIcon(milestone?.icon ?? '💫')
+    setLocation(milestone?.location ?? '')
     setFiles([])
     setError('')
   }, [open, milestone])
@@ -262,7 +267,7 @@ function Composer({
       if (milestoneId) {
         const { error: upErr } = await supabase
           .from('milestones')
-          .update({ title: title.trim(), description: description.trim() || null, happened_on: happenedOn, icon })
+          .update({ title: title.trim(), description: description.trim() || null, happened_on: happenedOn, icon, location: location.trim() || null })
           .eq('id', milestoneId)
         if (upErr) throw upErr
       } else {
@@ -274,6 +279,7 @@ function Composer({
             description: description.trim() || null,
             happened_on: happenedOn,
             icon,
+            location: location.trim() || null,
             created_by: (await supabase.auth.getUser()).data.user!.id,
           })
           .select()
@@ -352,6 +358,18 @@ function Composer({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What you remember. What you were wearing. What they said."
             className="min-h-24"
+          />
+        </Field>
+
+        {/* Free text, not a map pin. A map needs a geocoding key and sends
+            every place you have been to a third party. "That rooftop in Lekki"
+            is the part worth keeping anyway. */}
+        <Field label="Where" hint="Optional.">
+          <Input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="That rooftop in Lekki"
+            maxLength={80}
           />
         </Field>
 

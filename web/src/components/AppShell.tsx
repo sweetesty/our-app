@@ -18,6 +18,7 @@ const NAV = [
   { to: '/vault', icon: '🎁', label: 'Vault' },
   { to: '/nudges', icon: '🫂', label: 'Nudges' },
   { to: '/us', icon: '🏆', label: 'Us' },
+  { to: '/search', icon: '🔎', label: 'Search' },
   { to: '/settings', icon: '⚙️', label: 'Settings' },
 ]
 

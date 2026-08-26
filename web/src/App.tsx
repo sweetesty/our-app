@@ -15,6 +15,7 @@ import Timeline from './routes/Timeline'
 import Memories from './routes/Memories'
 import Moments from './routes/Moments'
 import Chat from './routes/Chat'
+import Search from './routes/Search'
 import Vault from './routes/Vault'
 import Nudges from './routes/Nudges'
 import Us from './routes/Us'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/memories" element={<Memories />} />
         <Route path="/moments" element={<Moments />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/vault" element={<Vault />} />
         <Route path="/nudges" element={<Nudges />} />
         <Route path="/us" element={<Us />} />

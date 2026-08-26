@@ -22,6 +22,7 @@ type AlbumItem = { album_id: string; memory_id: string; sort_order?: number }
 
 const FILTERS = [
   { key: 'all', label: 'Everything', icon: '🖼️' },
+  { key: 'favourite', label: 'Favourites', icon: '⭐' },
   { key: 'photo', label: 'Photos', icon: '📷' },
   { key: 'video', label: 'Videos', icon: '🎬' },
   { key: 'note', label: 'Love Notes', icon: '💌' },
@@ -41,6 +42,7 @@ export default function Memories() {
   const [items, setItems] = useState<AlbumItem[]>([])
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [filter, setFilter] = useState<string>('all')
+  const [favourites, setFavourites] = useState<Set<string>>(new Set())
   const [album, setAlbum] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -162,11 +164,17 @@ export default function Memories() {
   }
 
   const load = useCallback(async () => {
-    const [{ data: mem, error: memErr }, { data: alb }, { data: it }] = await Promise.all([
-      supabase.rpc('memories', { kinds: null, limit_count: 300 }),
-      supabase.from('albums').select('id, name, icon').order('created_at'),
-      supabase.from('album_items').select('album_id, memory_id, sort_order'),
-    ])
+    const [{ data: mem, error: memErr }, { data: alb }, { data: it }, { data: favs }] =
+      await Promise.all([
+        supabase.rpc('memories', { kinds: null, limit_count: 300 }),
+        supabase.from('albums').select('id, name, icon').order('created_at'),
+        supabase.from('album_items').select('album_id, memory_id, sort_order'),
+        supabase.from('favourite_memories').select('memory_id'),
+      ])
+
+    setFavourites(
+      new Set(((favs as { memory_id: string }[]) ?? []).map((f) => f.memory_id)),
+    )
 
     if (memErr) {
       setError(errorMessage(memErr))
@@ -191,7 +199,10 @@ export default function Memories() {
 
   const visible = useMemo(() => {
     const list = memories.filter((m) => {
-      if (filter !== 'all' && m.kind !== filter) return false
+      // Favourites cut across kinds rather than being one of them.
+      if (filter === 'favourite') {
+        if (!favourites.has(m.id)) return false
+      } else if (filter !== 'all' && m.kind !== filter) return false
       if (album !== 'all') {
         return items.some((i) => i.album_id === album && i.memory_id === m.id)
       }
@@ -208,7 +219,21 @@ export default function Memories() {
     )
 
     return [...list].sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999))
-  }, [memories, items, filter, album, manualOrder])
+  }, [memories, items, filter, album, manualOrder, favourites])
+
+  /** Starred by the couple, not per person — "our favourites" is the useful list. */
+  async function toggleFavourite(memory: Memory) {
+    setFavourites((current) => {
+      const next = new Set(current)
+      if (next.has(memory.id)) next.delete(memory.id)
+      else next.add(memory.id)
+      return next
+    })
+    await supabase.rpc('toggle_favourite_memory', {
+      memory: memory.id,
+      kind: memory.kind,
+    })
+  }
 
   async function toggleInAlbum(memory: Memory, albumId: string) {
     const already = items.some((i) => i.album_id === albumId && i.memory_id === memory.id)
@@ -535,6 +560,34 @@ export default function Memories() {
               <span className="absolute right-1.5 bottom-1.5 rounded-md bg-rose-950/80 px-1.5 py-0.5 text-[10px] text-rose-300">
                 {m.source}
               </span>
+
+              {/* A div, not a button: this sits inside one, and nesting them is
+                  invalid and swallows the tap on some browsers. */}
+              {!selecting && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={favourites.has(m.id) ? 'Remove from favourites' : 'Add to favourites'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void toggleFavourite(m)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    e.stopPropagation()
+                    void toggleFavourite(m)
+                  }}
+                  className={cx(
+                    'absolute top-1.5 left-1.5 grid size-7 cursor-pointer place-items-center rounded-full text-xs transition',
+                    favourites.has(m.id)
+                      ? 'bg-black/50 text-amber-300'
+                      : 'bg-black/30 text-white/40 opacity-0 group-hover:opacity-100 focus:opacity-100',
+                  )}
+                >
+                  {favourites.has(m.id) ? '⭐' : '☆'}
+                </div>
+              )}
             </button>
           )}
         />
