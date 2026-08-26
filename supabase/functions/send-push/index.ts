@@ -30,6 +30,8 @@ type PushEvent = {
     | 'milestone'
     | 'message'
     | 'memory'
+    | 'photo'
+    | 'reveal'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -87,6 +89,9 @@ function pathFor(type: string): string {
       return '/chat'
     case 'memory':
       return '/timeline'
+    case 'photo':
+    case 'reveal':
+      return '/' // the reveal lives on Today, beside the question
     default:
       return '/' // answer, mood, joined, reaction, compliment, milestone
   }
@@ -246,6 +251,22 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} sent you a moment 📸`,
       body: event.message ?? 'A glimpse of where they are right now.',
+    }
+  }
+
+  if (event.type === 'photo') {
+    return {
+      title: `${event.sender_name} posted their day 📷`,
+      // Deliberately does not describe the picture — the whole point is that
+      // you have to post yours before you see theirs.
+      body: 'Post yours to see it.',
+    }
+  }
+
+  if (event.type === 'reveal') {
+    return {
+      title: 'Both in — go look 📷',
+      body: `You and ${event.sender_name} both posted today.`,
     }
   }
 

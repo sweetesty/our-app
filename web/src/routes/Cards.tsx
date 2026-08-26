@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Field, Input, Loading, Modal, Textarea } from '../components/ui'
+import VoiceRecorder from '../components/VoiceRecorder'
+import { uploadMedia } from '../lib/media'
 import type { Card, CardDeck } from '../lib/types'
 
 export default function Cards() {
@@ -16,6 +18,7 @@ export default function Cards() {
   const [exhausted, setExhausted] = useState(false)
   const [flipped, setFlipped] = useState(false)
   const [played, setPlayed] = useState(0)
+  const [voice, setVoice] = useState<File | null>(null)
   const [newCardOpen, setNewCardOpen] = useState(false)
   const [newDeckOpen, setNewDeckOpen] = useState(false)
 
@@ -59,6 +62,7 @@ export default function Cards() {
     setExhausted(false)
     setCard(null)
     setResponse('')
+    setVoice(null)
 
     const { data, error: rpcError } = await supabase.rpc('draw_card', { target_deck: deck.id })
     setDrawing(false)
@@ -77,16 +81,28 @@ export default function Cards() {
   async function finish(withResponse: boolean) {
     if (!card || !coupleId || !active) return
 
+    let voicePath: string | null = null
+    if (withResponse && voice) {
+      setError('')
+      try {
+        voicePath = (await uploadMedia(coupleId, 'cards', voice)).path
+      } catch (err) {
+        return setError(errorMessage(err))
+      }
+    }
+
     const { error: insertError } = await supabase.from('card_plays').insert({
       couple_id: coupleId,
       card_id: card.id,
       played_by: (await supabase.auth.getUser()).data.user!.id,
       response: withResponse ? response.trim() || null : null,
+      voice_path: voicePath,
       completed: true,
     })
 
     if (insertError) return setError(errorMessage(insertError))
 
+    setVoice(null)
     setPlayed((n) => n + 1)
     await supabase.rpc('sync_achievements')
     await refresh()
@@ -184,6 +200,11 @@ export default function Cards() {
             }
             className="w-full resize-none rounded-2xl border border-rose-700/40 bg-rose-950/50 p-4 text-sm text-rose-100 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
           />
+
+          {/* Several dares ask for a voice note by name and there was no way to
+              record one — you could only type that you had done it elsewhere.
+              The recorder is the same one the Vault uses. */}
+          <VoiceRecorder key={card.id} onRecorded={setVoice} maxSeconds={120} />
 
           <div className="flex gap-2">
             <button

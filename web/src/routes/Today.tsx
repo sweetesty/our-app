@@ -6,6 +6,7 @@ import { celebrateReveal } from '../lib/celebrate'
 import NotificationPrompt from '../components/NotificationPrompt'
 import MoodCheckin from '../components/MoodCheckin'
 import MomentStack from '../components/MomentStack'
+import DailyReveal from '../components/DailyReveal'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
 
 export default function Today() {
@@ -168,6 +169,10 @@ export default function Today() {
           Deliberately not a scrolling feed: this is two people, not an
           audience. */}
       <MomentStack />
+
+      {/* The other daily ritual, kept next to the question rather than given
+          its own tab: post your day, see theirs. */}
+      <DailyReveal />
 
       <MoodCheckin />
 
