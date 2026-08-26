@@ -17,10 +17,12 @@ import {
 import { when } from '../lib/format'
 import { signedUrls, uploadMedia } from '../lib/media'
 import Reactions, { type ReactionRow } from '../components/Reactions'
+import Replies from '../components/Replies'
 import { MOODS, type LoveNote, type NoteMood } from '../lib/types'
 
 export default function Notes() {
-  const { userId, coupleId, refresh } = useSession()
+  const { userId, coupleId, summary, refresh } = useSession()
+  const partnerName = summary?.partner?.display_name ?? 'them'
   const [notes, setNotes] = useState<LoveNote[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,6 +33,7 @@ export default function Notes() {
   const [query, setQuery] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [noteReactions, setNoteReactions] = useState<Record<string, ReactionRow[]>>({})
+  const [replyCounts, setReplyCounts] = useState<Record<string, number>>({})
 
   async function toggleFavourite(note: LoveNote) {
     const { data } = await supabase.rpc('toggle_note_favourite', { note: note.id })
@@ -57,17 +60,24 @@ export default function Notes() {
     const paths = rows.map((n) => n.photo_path).filter((p): p is string => Boolean(p))
     if (paths.length > 0) setPhotoUrls(await signedUrls(paths))
 
-    // Reactions live in one generic table; pull this screen's in a single go.
-    const { data: reacts } = await supabase
-      .from('reactions')
-      .select('target_id, emoji, user_id')
-      .eq('target_kind', 'note')
+    // Reactions and replies each live in one generic table; pull this screen's
+    // share of both in a single go rather than per note.
+    const [{ data: reacts }, { data: answers }] = await Promise.all([
+      supabase.from('reactions').select('target_id, emoji, user_id').eq('target_kind', 'note'),
+      supabase.from('replies').select('target_id').eq('target_kind', 'note'),
+    ])
 
     const grouped: Record<string, ReactionRow[]> = {}
     for (const r of (reacts as { target_id: string; emoji: string; user_id: string }[]) ?? []) {
       ;(grouped[r.target_id] ??= []).push({ emoji: r.emoji, mine: r.user_id === userId })
     }
     setNoteReactions(grouped)
+
+    const counted: Record<string, number> = {}
+    for (const r of (answers as { target_id: string }[]) ?? []) {
+      counted[r.target_id] = (counted[r.target_id] ?? 0) + 1
+    }
+    setReplyCounts(counted)
 
     setLoading(false)
   }, [userId])
@@ -264,6 +274,7 @@ export default function Notes() {
                     index={i}
                     mine={n.author_id === userId}
                     photoUrl={n.photo_path ? photoUrls[n.photo_path] : undefined}
+                    replies={replyCounts[n.id] ?? 0}
                     onOpen={() => void open(n)}
                   />
                 ))}
@@ -282,6 +293,7 @@ export default function Notes() {
                     index={i + 2}
                     mine={n.author_id === userId}
                     photoUrl={n.photo_path ? photoUrls[n.photo_path] : undefined}
+                    replies={replyCounts[n.id] ?? 0}
                     onOpen={() => void open(n)}
                   />
                 ))}
@@ -330,6 +342,15 @@ export default function Notes() {
               onChanged={load}
             />
 
+            {/* The answer to the note, kept with the note. Typed into chat it
+                would be gone by tomorrow, still attached to nothing. */}
+            <Replies
+              kind="note"
+              targetId={reading.id}
+              authorName={partnerName}
+              onChanged={load}
+            />
+
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" onClick={() => void toggleFavourite(reading)}>
                 {reading.is_favourite ? '⭐ Favourited' : '☆ Favourite'}
@@ -355,12 +376,14 @@ function NoteCard({
   mine,
   index,
   photoUrl,
+  replies,
   onOpen,
 }: {
   note: LoveNote
   mine: boolean
   index: number
   photoUrl?: string
+  replies: number
   onOpen: () => void
 }) {
   const mood = MOODS.find((m) => m.value === note.mood)
@@ -400,6 +423,11 @@ function NoteCard({
       <p className="line-clamp-4 text-sm leading-relaxed text-rose-100">“{note.body}”</p>
       <p className="mt-2 flex items-center gap-2 text-xs text-rose-400/70">
         <span>{when(note.created_at)}</span>
+        {replies > 0 && (
+          <span className="rounded-full bg-pink-500/15 px-2 py-0.5 text-[10px] text-pink-300">
+            💬 {replies}
+          </span>
+        )}
         {/* An unpinned note has a clock on it, so say so before it goes. */}
         {note.expires_at && (
           <span className="rounded-full bg-rose-950/60 px-2 py-0.5 text-[10px] text-rose-300">

@@ -43,7 +43,7 @@ export default function MomentStack() {
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fullscreen, setFullscreen] = useState<Moment | null>(null)
-  const [complimenting, setComplimenting] = useState(false)
+  const [complimenting, setComplimenting] = useState<'send' | 'history' | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
 
   // drag state
@@ -103,14 +103,25 @@ export default function MomentStack() {
     setDx(direction * window.innerWidth)
 
     window.setTimeout(() => {
+      // The card carries key={current.id}, so changing the index here mounts a
+      // fresh node at centre. It used to be the same node with its transform
+      // reset, which meant the incoming photo slid all the way back across the
+      // screen from the side the last one left — half a second of the swap
+      // visibly un-happening. Now the next card rises out of the stack instead.
       setIndex(wrapped)
       setFlying(false)
       setDx(0)
-    }, 260)
+    }, 240)
   }
 
   function onPointerDown(e: React.PointerEvent) {
     if (flying) return
+    // A drag that starts on a control belongs to that control. Without this,
+    // selecting text in the reply box or holding a reaction dragged the whole
+    // card sideways underneath you.
+    if ((e.target as HTMLElement).closest('button, a, input, textarea, audio, video')) {
+      return
+    }
     setDragging(true)
     startX.current = e.clientX
     startTime.current = Date.now()
@@ -220,6 +231,8 @@ export default function MomentStack() {
 
         {/* the live card */}
         <div
+          // Keyed on the photo: each swap is a new card, not the old one moved.
+          key={current.id}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -231,12 +244,17 @@ export default function MomentStack() {
             // uses an overshooting curve so it feels elastic rather than stiff.
             !dragging &&
               (flying
-                ? 'transition-transform duration-[260ms] ease-out'
+                ? 'transition-[transform,opacity] duration-[240ms] ease-out'
                 : 'transition-transform duration-500 [transition-timing-function:cubic-bezier(0.18,1.25,0.4,1)]'),
+            // Arriving from the place the card behind was sitting, so the stack
+            // reads as advancing by one rather than a photo simply changing.
+            // Unconditional: the key above means this node is new every swap,
+            // so it plays once per card rather than after every cancelled drag.
+            'animate-card-settle',
           )}
           style={{
             transform: `translateX(${dx}px) rotate(${dx / 22}deg)`,
-            opacity: flying ? 0.2 : 1,
+            opacity: flying ? 0 : 1,
             cursor: dragging ? 'grabbing' : 'grab',
           }}
         >
@@ -313,12 +331,23 @@ export default function MomentStack() {
                 screen — you say it because you are looking at them. */}
             {!mine && (
               <div className="space-y-2">
-                <button
-                  onClick={() => setComplimenting(true)}
-                  className="w-full rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-2.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
-                >
-                  Send a Compliment 💕
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setComplimenting('send')}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 py-2.5 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500 active:scale-[0.98]"
+                  >
+                    Send a Compliment 💕
+                  </button>
+                  {/* A compliment sent from here used to vanish — the only
+                      window onto them sat beside a trigger this card hides. */}
+                  <button
+                    onClick={() => setComplimenting('history')}
+                    aria-label="Compliments you've sent and received"
+                    className="rounded-2xl border border-rose-700/40 bg-rose-900/40 px-3 text-xs text-rose-200 transition hover:bg-rose-900"
+                  >
+                    💌
+                  </button>
+                </div>
 
                 {/* Until now the only replies were an emoji or a preset. A
                     reply files into the one chat thread carrying this photo's
@@ -348,8 +377,9 @@ export default function MomentStack() {
       )}
 
       <Compliments
-        open={complimenting}
-        onClose={() => setComplimenting(false)}
+        open={complimenting !== null}
+        view={complimenting ?? 'send'}
+        onClose={() => setComplimenting(null)}
         hideTrigger
       />
 

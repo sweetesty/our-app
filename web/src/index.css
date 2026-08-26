@@ -55,6 +55,19 @@
   --animate-float: float 9s ease-in-out infinite;
   --animate-drift-up: drift-up 2.2s ease-out forwards;
   --animate-seal-break: seal-break 0.75s cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+
+  /* The vault ceremony. */
+  --animate-seal-strain: seal-strain 1.15s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-seal-heat: seal-heat 1.15s ease-in forwards;
+  --animate-seal-waiting: seal-waiting 2.6s ease-in-out infinite;
+  --animate-crack-draw: crack-draw 0.4s ease-out forwards;
+  --animate-shard-fly: shard-fly 0.9s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+  --animate-ring-burst: ring-burst 0.85s ease-out forwards;
+  --animate-flash-out: flash-out 0.55s ease-out forwards;
+  --animate-letter-unfurl: letter-unfurl 0.9s cubic-bezier(0.2, 0.9, 0.15, 1) both;
+
+  --animate-typing-bounce: typing-bounce 1.25s ease-in-out infinite;
+  --animate-card-settle: card-settle 0.34s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
 @keyframes rise {
@@ -93,6 +106,89 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Breaking a vault seal
+   ---------------------------------------------------------------------------
+   A letter that has been waiting weeks deserves more than a fade. The wax
+   strains, splits, and flies apart before the words arrive — the one moment in
+   the app worth making someone sit through.
+   --------------------------------------------------------------------------- */
+
+/* Building pressure: small at first, then unmistakably about to give. */
+@keyframes seal-strain {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  12%  { transform: translate3d(-1px, 1px, 0) rotate(-0.6deg) scale(1.01); }
+  24%  { transform: translate3d(2px, -1px, 0) rotate(1deg) scale(1.02); }
+  36%  { transform: translate3d(-2px, 2px, 0) rotate(-1.6deg) scale(1.03); }
+  48%  { transform: translate3d(3px, -2px, 0) rotate(2.2deg) scale(1.04); }
+  60%  { transform: translate3d(-4px, 2px, 0) rotate(-2.8deg) scale(1.05); }
+  72%  { transform: translate3d(5px, -3px, 0) rotate(3.4deg) scale(1.07); }
+  84%  { transform: translate3d(-6px, 3px, 0) rotate(-4deg) scale(1.08); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1.1); }
+}
+
+/* The wax heating up under it. */
+@keyframes seal-heat {
+  0%   { box-shadow: 0 0 0 0 rgb(236 72 153 / 0); filter: brightness(1) saturate(1); }
+  100% { box-shadow: 0 0 70px 16px rgb(236 72 153 / 0.55); filter: brightness(1.4) saturate(1.3); }
+}
+
+/* Hairline fractures drawing themselves across the wax. */
+@keyframes crack-draw {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* Wax leaving in every direction. Each shard sets its own --dx/--dy/--spin. */
+@keyframes shard-fly {
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  70%  { opacity: 0.9; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--spin)) scale(0.35);
+  }
+}
+
+/* The shockwave that leaves with them. */
+@keyframes ring-burst {
+  0%   { opacity: 0.85; transform: scale(0.35); border-width: 12px; }
+  100% { opacity: 0; transform: scale(3.6); border-width: 1px; }
+}
+
+@keyframes flash-out {
+  0%   { opacity: 0; }
+  18%  { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+/* The letter itself, coming up out of the envelope. */
+@keyframes letter-unfurl {
+  0%   { opacity: 0; transform: translateY(22px) scaleY(0.72); filter: blur(10px); }
+  55%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* The next photo rising into the front of the stack — it starts exactly where
+   the card behind was sitting, so the swap looks like the pile advancing. No
+   fill mode: once it is done the card's own transform takes over again, which
+   is what the drag needs. */
+@keyframes card-settle {
+  from { transform: scale(0.94) translateY(12px); opacity: 0.55; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Three dots, while the other person is writing. */
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Waiting to be broken: a slow heartbeat under an unopened seal. */
+@keyframes seal-waiting {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 22px 2px rgb(236 72 153 / 0.28); }
+  50%      { transform: scale(1.045); box-shadow: 0 0 40px 8px rgb(236 72 153 / 0.45); }
+}
+
+/* ---------------------------------------------------------------------------
    base
    --------------------------------------------------------------------------- */
 
@@ -100,16 +196,27 @@
   html {
     -webkit-text-size-adjust: 100%;
     scrollbar-color: rgb(159 18 57 / 0.6) transparent;
+    /* The canvas the browser paints outside the page: behind an overscroll
+       bounce, and behind the sheet during a swipe-back gesture. Left alone it
+       is white, which flashed a bright strip down the edge of the screen mid
+       swipe. Both of these keep that area the colour of the app. */
+    color-scheme: dark;
+    background-color: var(--bg-a);
   }
 
   body {
     margin: 0;
     min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
     font-family: var(--font-sans);
-    color: #fff1f2;
-    background: linear-gradient(to bottom right, #4c0519, #881337, #500724);
+    color: var(--color-ink);
+    /* The palette's own colours, so a background choice and an accent can
+       never be picked into an ugly pair. theme.css overrides per data-bg. */
+    background: linear-gradient(to bottom right, var(--bg-a), var(--bg-b), var(--bg-c));
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
   }
 
   #root {

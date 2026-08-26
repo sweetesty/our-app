@@ -7,6 +7,42 @@
          variant for the browser chrome to match. -->
     <meta name="theme-color" content="#1a0b0f" />
 
+    <!-- The first frame.
+
+         Everything that paints this app dark — index.css, theme.css, the
+         React bundle — arrives over the network. Until the first of them
+         lands the browser shows its own blank page, which is white, and on a
+         cold start that is long enough to see. This block is inline, so it is
+         applied while the parser is still on this line. -->
+    <style>
+      html {
+        background-color: #1a0b0f;
+        color-scheme: dark;
+      }
+    </style>
+    <script>
+      // The palette they actually chose, before first paint. main.tsx does
+      // this too, but only once the bundle has downloaded — this closes that
+      // window so a Forest couple never sees a rose flash, or a white one.
+      try {
+        var saved = JSON.parse(localStorage.getItem('appearance') || '{}')
+        var canvases = {
+          rose: '#4c0519',
+          violet: '#2e1065',
+          ocean: '#042f2e',
+          ember: '#451a03',
+          forest: '#022c22',
+          midnight: '#020617',
+        }
+        var accent = canvases[saved.accent] ? saved.accent : 'rose'
+        document.documentElement.dataset.accent = accent
+        document.documentElement.dataset.bg = saved.background || 'glow'
+        document.documentElement.style.backgroundColor = canvases[accent]
+      } catch (e) {
+        // Private mode, or no choice made yet. The inline style above stands.
+      }
+    </script>
+
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <!-- iOS ignores the manifest icons and composites transparency against
          black, so this one is opaque and supplied separately. -->
@@ -40,7 +76,11 @@
       rel="stylesheet"
     />
   </head>
-  <body class="bg-gradient-to-br from-rose-950 via-rose-900 to-pink-950 min-h-screen text-rose-50 flex flex-col selection:bg-rose-500 selection:text-white font-sans">
+  <!-- No background classes here. They used to hard-code the rose gradient as
+       a utility, which outranked the chosen background in Settings — so Glow,
+       Plain and Aurora all painted the same thing. The background belongs to
+       index.css and theme.css, where the palette can reach it. -->
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

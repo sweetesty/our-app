@@ -16,6 +16,8 @@ import {
 import { untilUnlock, when } from '../lib/format'
 import { signedUrl, uploadMedia } from '../lib/media'
 import VoiceRecorder from '../components/VoiceRecorder'
+import SealBreak, { WaxSeal } from '../components/SealBreak'
+import Replies from '../components/Replies'
 import type { VaultContents, VaultItem } from '../lib/types'
 
 const CONDITION_PRESETS = [
@@ -123,6 +125,7 @@ export default function Vault() {
       <Reader
         item={reading}
         mine={reading?.author_id === userId}
+        partnerName={partnerName}
         onClose={() => setReading(null)}
         onChanged={load}
       />
@@ -206,11 +209,13 @@ function VaultCard({
 function Reader({
   item,
   mine,
+  partnerName,
   onClose,
   onChanged,
 }: {
   item: VaultItem | null
   mine: boolean
+  partnerName: string
   onClose: () => void
   onChanged: () => Promise<void>
 }) {
@@ -221,6 +226,9 @@ function Reader({
   const [opening, setOpening] = useState(false)
   const [emailing, setEmailing] = useState(false)
   const [emailed, setEmailed] = useState(false)
+  // The ceremony, and whether the letter behind it has actually arrived.
+  const [ceremony, setCeremony] = useState(false)
+  const [arrived, setArrived] = useState(false)
 
   async function emailCopy() {
     if (!item) return
@@ -252,6 +260,8 @@ function Reader({
     setUrl(null)
     setError('')
     setOpening(false)
+    setCeremony(false)
+    setArrived(false)
     if (!item) return
     if (mine || item.unlocked_at) void fetchContents(item.id)
   }, [item, mine, fetchContents])
@@ -260,15 +270,22 @@ function Reader({
     if (!item) return
     setBusy(true)
     setError('')
+    setArrived(false)
+    // The seal starts giving way on the tap, not after the round trip. The
+    // request runs underneath it; the ceremony will not finish without it.
+    setCeremony(true)
+
     const { error: rpcError } = await supabase.rpc('unlock_vault_item', { item: item.id })
     if (rpcError) {
+      setCeremony(false)
       setError(errorMessage(rpcError))
       setBusy(false)
       return
     }
-    setOpening(true)
+
     await fetchContents(item.id)
     await onChanged()
+    setArrived(true)
     setBusy(false)
   }
 
@@ -285,10 +302,21 @@ function Reader({
   const showContents = mine || !!item.unlocked_at || opening
 
   return (
-    <Modal open onClose={onClose} title={item.label}>
+    <>
+      <SealBreak
+        open={ceremony}
+        label={item.is_surprise ? 'A surprise' : item.label}
+        ready={arrived}
+        onDone={() => {
+          setCeremony(false)
+          setOpening(true)
+        }}
+      />
+
+      <Modal open onClose={onClose} title={item.label}>
       <div className="space-y-5">
         {showContents ? (
-          <div className={opening ? 'animate-unseal space-y-4' : 'space-y-4'}>
+          <div className={opening ? 'animate-letter-unfurl space-y-4' : 'space-y-4'}>
             {contents?.body && (
               <p className="font-display text-lg leading-relaxed whitespace-pre-wrap text-ink">
                 {contents.body}
@@ -316,15 +344,23 @@ function Reader({
                     : `Opens ${untilUnlock(item.unlock_at)}.`
                 : `Sealed ${when(item.created_at)}.`}
             </p>
+
+            {/* Answering the letter, kept with the letter. Only once it is
+                genuinely open — the RPC refuses on a sealed one, so this is
+                not the only thing standing in the way. */}
+            {(!mine || item.unlocked_at) && (
+              <Replies kind="vault" targetId={item.id} authorName={partnerName} />
+            )}
           </div>
         ) : ready ? (
           <div className="space-y-4 py-4 text-center">
-            <p className="animate-pulse-soft text-5xl">✨</p>
+            <WaxSeal />
             <p className="text-sm leading-relaxed text-ink-muted">
               {item.unlock_type === 'condition'
                 ? `They left this for you — open it ${item.unlock_condition}.`
                 : 'This one is ready.'}
             </p>
+            <p className="text-xs text-ink-faint">Sealed {when(item.created_at)}. Once.</p>
             {error && <ErrorNote>{error}</ErrorNote>}
             <Button size="lg" loading={busy} className="w-full" onClick={() => void unlock()}>
               Break the seal
@@ -353,8 +389,9 @@ function Reader({
             </Button>
           )}
         </div>
-      </div>
-    </Modal>
+        </div>
+      </Modal>
+    </>
   )
 }
 

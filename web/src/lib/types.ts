@@ -198,6 +198,19 @@ export type VaultContents = {
   media_type: MediaType | null
 }
 
+/** What a reply can hang off. Mirrors the check on public.replies. */
+export type ReplyKind = 'note' | 'vault' | 'compliment'
+
+export type Reply = {
+  id: string
+  couple_id: string
+  target_kind: ReplyKind
+  target_id: string
+  author_id: string
+  body: string
+  created_at: string
+}
+
 export type NudgeKind =
   | 'miss_you'
   | 'thinking_of_you'

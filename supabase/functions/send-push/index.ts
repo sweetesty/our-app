@@ -33,6 +33,7 @@ type PushEvent = {
     | 'photo'
     | 'reveal'
     | 'surprise'
+    | 'reply'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -72,10 +73,13 @@ const MOOD_COPY: Record<string, { emoji: string; word: string }> = {
 const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/$/, '')
 
 /** Each notification type belongs on a different screen. */
-function pathFor(type: string): string {
+function pathFor(type: string, kind?: string): string {
   switch (type) {
     case 'vault':
       return '/vault'
+    // A reply lands on whatever it was a reply to.
+    case 'reply':
+      return kind === 'vault' ? '/vault' : '/notes'
     case 'note':
       return '/notes'
     case 'nudge':
@@ -323,6 +327,16 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
+  // Answering a note or a letter. The reply itself goes on the lock screen —
+  // unlike the note it answers, which sends only its title, because a reply is
+  // a message and a message is meant to be read as it lands.
+  if (event.type === 'reply') {
+    return {
+      title: `${event.sender_name} wrote back 💬`,
+      body: event.message ?? event.label ?? 'Tap to read it.',
+    }
+  }
+
   if (event.type === 'note') {
     return {
       title:
@@ -512,7 +526,7 @@ Deno.serve(async (req) => {
               ...(APP_URL
                 ? {
                     webpush: {
-                      fcm_options: { link: `${APP_URL}${pathFor(event.type)}` },
+                      fcm_options: { link: `${APP_URL}${pathFor(event.type, event.kind)}` },
                       notification: {
                         icon: `${APP_URL}/pwa-192x192.png`,
                         badge: `${APP_URL}/pwa-192x192.png`,

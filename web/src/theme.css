@@ -254,44 +254,84 @@ html[data-accent='midnight'] {
   --bg-c: #500724;
 }
 
+/* The canvas outside the page — overscroll, and behind a swipe-back — matches
+   whichever background is on. */
+html[data-bg='plain'],
+html[data-bg='glow'],
+html[data-bg='aurora'],
+html[data-bg='stars'] {
+  background-color: var(--bg-a);
+}
+
+/* Three stops on the diagonal. The original, and still the calmest. */
 html[data-bg='glow'] body {
   background: linear-gradient(to bottom right, var(--bg-a), var(--bg-b), var(--bg-c));
   background-attachment: fixed;
 }
 
+/* One colour and nothing else. Genuinely flat — the point is the absence. */
 html[data-bg='plain'] body {
   background: var(--bg-a);
+  background-attachment: fixed;
 }
 
-/* Soft drifting blooms. Two radial gradients over the flat colour, moved by a
-   long slow animation — cheap enough to leave running, and it makes the page
-   feel lit rather than printed. */
+/* Three blooms of light over the flat colour, drifting on a long cycle. They
+   are deliberately large and bright: at the old strength this was hard to tell
+   apart from Glow, which made choosing it pointless. */
 html[data-bg='aurora'] body {
   background:
-    radial-gradient(closest-side at 18% 18%, color-mix(in oklab, var(--bg-b) 85%, white) 0%, transparent 70%),
-    radial-gradient(closest-side at 82% 72%, color-mix(in oklab, var(--bg-c) 85%, white) 0%, transparent 70%),
+    radial-gradient(
+      70% 55% at 12% 6%,
+      color-mix(in oklab, var(--bg-b) 55%, white) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      65% 50% at 92% 44%,
+      color-mix(in oklab, var(--bg-c) 45%, white) 0%,
+      transparent 66%
+    ),
+    radial-gradient(
+      80% 45% at 40% 104%,
+      color-mix(in oklab, var(--bg-b) 65%, white) 0%,
+      transparent 70%
+    ),
     var(--bg-a);
   background-attachment: fixed;
-  animation: aurora-drift 26s ease-in-out infinite alternate;
+  animation: aurora-drift 22s ease-in-out infinite alternate;
 }
 
 @keyframes aurora-drift {
-  from { background-position: 0% 0%, 100% 100%, 0 0; }
-  to   { background-position: 12% 8%, 88% 92%, 0 0; }
+  from { background-position: -8% -6%, 108% 40%, 30% 108%, 0 0; }
+  to   { background-position: 14% 10%, 82% 56%, 58% 92%, 0 0; }
 }
 
-/* Small points of light. A repeating-gradient rather than generated elements,
-   so it costs nothing and scrolls with the page. */
+/* A night sky. Four layers at different sizes so the pattern never reads as a
+   grid, over a gradient dark enough for them to show. */
 html[data-bg='stars'] body {
   background:
-    radial-gradient(1px 1px at 20% 30%, rgb(255 255 255 / 0.6) 50%, transparent 50%),
-    radial-gradient(1px 1px at 70% 65%, rgb(255 255 255 / 0.5) 50%, transparent 50%),
-    radial-gradient(1.5px 1.5px at 45% 85%, rgb(255 255 255 / 0.4) 50%, transparent 50%),
-    linear-gradient(to bottom right, var(--bg-a), var(--bg-b), var(--bg-c));
-  background-size: 180px 180px, 240px 240px, 300px 300px, 100% 100%;
+    radial-gradient(1.6px 1.6px at 20% 30%, rgb(255 255 255 / 0.95) 50%, transparent 50%),
+    radial-gradient(1.2px 1.2px at 70% 65%, rgb(255 255 255 / 0.75) 50%, transparent 50%),
+    radial-gradient(2px 2px at 45% 85%, rgb(255 255 255 / 0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 85% 15%, rgb(255 255 255 / 0.55) 50%, transparent 50%),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--bg-a) 80%, black) 0%,
+      var(--bg-a) 45%,
+      var(--bg-c) 100%
+    );
+  background-size: 120px 120px, 170px 170px, 260px 260px, 90px 90px, 100% 100%;
   background-attachment: fixed;
+  animation: star-twinkle 7s ease-in-out infinite alternate;
+}
+
+/* The sky turning, barely. Background-position rather than opacity — opacity on
+   <body> would fade every word on the page with it. */
+@keyframes star-twinkle {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to   { background-position: 14px 9px, -11px 7px, 8px -12px, -6px 10px, 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-bg='aurora'] body { animation: none; }
+  html[data-bg='aurora'] body,
+  html[data-bg='stars'] body { animation: none; }
 }

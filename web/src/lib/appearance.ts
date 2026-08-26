@@ -38,6 +38,12 @@ export function applyAppearance(accent?: string | null, background?: string | nu
   root.dataset.accent = a
   root.dataset.bg = b
 
+  // index.html paints this inline before the stylesheet loads, to kill the
+  // white flash on a cold start. An inline style outranks the stylesheet, so
+  // it has to be kept in step here or changing palette would leave the old
+  // colour showing behind an overscroll bounce until the next reload.
+  root.style.backgroundColor = ACCENTS.find((x) => x.value === a)?.swatch[0] ?? '#4c0519'
+
   try {
     localStorage.setItem('appearance', JSON.stringify({ accent: a, background: b }))
   } catch {

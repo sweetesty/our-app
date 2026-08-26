@@ -58,9 +58,15 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [showPins, setShowPins] = useState(false)
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [theyreTyping, setTheyreTyping] = useState(false)
 
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // The typing channel, plus the two timers that keep it honest: when we last
+  // told them, and when to stop believing them.
+  const typingChannel = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const toldThemAt = useRef(0)
+  const stopBelieving = useRef<number | null>(null)
   // Uncontrolled: a controlled field re-rendered the whole thread on every
   // letter, which on iOS dropped focus and shut the keyboard mid-word.
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -144,11 +150,86 @@ export default function Chat() {
     }
   }, [coupleId, load])
 
+  /**
+   * "…is typing".
+   *
+   * Broadcast, not a table. A keystroke is not worth a row, and it must not
+   * survive the moment — writing it down would leave a record of someone
+   * starting a message and thinking better of it, which is the opposite of
+   * what this app is for. Nothing here is ever persisted.
+   */
+  useEffect(() => {
+    if (!coupleId || !userId) return
+
+    const channel = supabase
+      .channel(`typing:${coupleId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        const from = payload as { userId?: string; typing?: boolean } | null
+        if (!from || from.userId === userId) return
+
+        setTheyreTyping(from.typing !== false)
+        if (stopBelieving.current) window.clearTimeout(stopBelieving.current)
+
+        // Their "stopped" can be lost — a closed tab, a dead network. Expire it
+        // on our side too, or the dots would stay up all evening.
+        if (from.typing !== false) {
+          stopBelieving.current = window.setTimeout(() => setTheyreTyping(false), 5000)
+        }
+      })
+      .subscribe()
+
+    typingChannel.current = channel
+
+    return () => {
+      typingChannel.current = null
+      if (stopBelieving.current) window.clearTimeout(stopBelieving.current)
+      setTheyreTyping(false)
+      void supabase.removeChannel(channel)
+    }
+  }, [coupleId, userId])
+
+  function announceTyping(active: boolean) {
+    const channel = typingChannel.current
+    if (!channel) return
+
+    const now = Date.now()
+    // Re-announce at most every second or so while they keep typing; stopping
+    // always goes out immediately.
+    if (active && now - toldThemAt.current < 1200) return
+    toldThemAt.current = active ? now : 0
+
+    void channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId, typing: active },
+    })
+  }
+
+  // A safety net under realtime. The socket is the fast path, but it can be
+  // blocked by a network, dropped on a locked phone, or simply never connect —
+  // and when that happened the thread only moved when the screen was reopened.
+  // A quiet poll while the tab is in front costs one small query and means the
+  // conversation always catches up on its own.
+  useEffect(() => {
+    if (!coupleId) return
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const timer = window.setInterval(tick, 15_000)
+    document.addEventListener('visibilitychange', tick)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [coupleId, load])
+
   // useLayoutEffect, not useEffect: scrolling after paint makes the thread
   // visibly jump from the top on open.
   useLayoutEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
+  }, [messages.length, theyreTyping])
 
   async function send(attachment?: File) {
     const body = inputRef.current?.value.trim() ?? ''
@@ -169,6 +250,8 @@ export default function Chat() {
     setReplyTo(null)
     setVoice(null)
     setRecording(false)
+    // The message is on its way; the dots have done their job.
+    announceTyping(false)
 
     try {
       let path: string | null = null
@@ -178,7 +261,7 @@ export default function Chat() {
         kind = mediaTypeOf(file)
       }
 
-      const { error: rpcError } = await supabase.rpc('send_message', {
+      const { data, error: rpcError } = await supabase.rpc('send_message', {
         message_body: body || null,
         about_moment: null,
         attachment_path: path,
@@ -186,6 +269,20 @@ export default function Chat() {
         replying_to: quoted,
       })
       if (rpcError) throw rpcError
+
+      // Put it in the thread now, from the row the insert returned. This used
+      // to wait for realtime to echo the message back — so when realtime was
+      // not delivering, your own message stayed invisible until you left the
+      // screen and came back. Nothing you have already sent should depend on a
+      // socket to appear.
+      const saved = data as Message | null
+      if (saved) {
+        setMessages((current) =>
+          current.some((m) => m.id === saved.id) ? current : [...current, saved],
+        )
+      }
+      // Then reconcile: signed URLs for an attachment, read receipts, badges.
+      void load()
     } catch (err) {
       setError(errorMessage(err))
       // Give them their words back rather than losing them to an error.
@@ -417,6 +514,21 @@ export default function Chat() {
           )
         })}
 
+        {theyreTyping && (
+          <div className="flex justify-start">
+            <div className="mt-2 flex items-center gap-1.5 rounded-3xl bg-rose-900/50 px-4 py-3">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="animate-typing-bounce size-1.5 rounded-full bg-rose-200"
+                  style={{ animationDelay: `${i * 160}ms` }}
+                />
+              ))}
+              <span className="sr-only">{partnerName} is typing</span>
+            </div>
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 
@@ -496,7 +608,10 @@ export default function Chat() {
                 const el = e.currentTarget
                 el.style.height = 'auto'
                 el.style.height = `${Math.min(el.scrollHeight, 140)}px`
+                announceTyping(el.value.trim().length > 0)
               }}
+              // Putting the phone down should take the dots down with it.
+              onBlur={() => announceTyping(false)}
               onKeyDown={(e) => {
                 // Enter sends on a keyboard; Shift+Enter makes a new line. On a
                 // phone the on-screen return key inserts a line as usual.

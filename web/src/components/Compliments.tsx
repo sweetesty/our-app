@@ -40,11 +40,14 @@ export default function Compliments({
   open: controlledOpen,
   onClose,
   hideTrigger = false,
+  view = 'send',
 }: {
   /** Controlled mode: opened from a moment card rather than its own button. */
   open?: boolean
   onClose?: () => void
   hideTrigger?: boolean
+  /** Which half opens — the picker, or everything already said. */
+  view?: 'send' | 'history'
 } = {}) {
   const { userId, summary, refresh } = useSession()
   const [selfOpen, setSelfOpen] = useState(false)
@@ -122,13 +125,25 @@ export default function Compliments({
     await refresh()
   }
 
-  async function openHistory() {
+  const openHistory = useCallback(async () => {
     setShowHistory(true)
-    if (unread > 0) {
+    if (history.some((c) => c.author_id !== userId && !c.seen_at)) {
       await supabase.rpc('mark_compliments_seen')
       await load()
       await refresh()
     }
+  }, [history, userId, load, refresh])
+
+  // Opened straight onto the history from a moment card.
+  useEffect(() => {
+    if (open && view === 'history') void openHistory()
+    // openHistory changes as the list loads; only the opening matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, view])
+
+  function closeHistory() {
+    setShowHistory(false)
+    if (view === 'history') setOpen(false)
   }
 
   const partnerName = summary?.partner?.display_name ?? 'them'
@@ -159,7 +174,11 @@ export default function Compliments({
       )}
 
       {/* picker */}
-      <Modal open={open} onClose={() => setOpen(false)} title={`Tell ${partnerName} 💕`}>
+      <Modal
+        open={open && view === 'send'}
+        onClose={() => setOpen(false)}
+        title={`Tell ${partnerName} 💕`}
+      >
         {sent ? (
           <div className="py-10 text-center">
             <p className="animate-unseal text-5xl">💗</p>
@@ -167,6 +186,16 @@ export default function Compliments({
             <p className="mt-1 text-xs text-rose-300">
               It's on their phone already.
             </p>
+            <button
+              onClick={() => {
+                setSent(false)
+                setOpen(false)
+                void openHistory()
+              }}
+              className="mt-4 text-xs text-pink-300 underline underline-offset-4"
+            >
+              See it 💌
+            </button>
           </div>
         ) : writing ? (
           <div className="space-y-3">
@@ -221,13 +250,35 @@ export default function Compliments({
               <span className="text-sm text-rose-200">Write my own</span>
             </button>
 
+            {/* The way back to what has already been said. It used to live only
+                beside the trigger button — which is hidden when this opens from
+                a photo, so a compliment sent from there went somewhere you
+                could not follow it. */}
+            {history.length > 0 && (
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  void openHistory()
+                }}
+                className="flex w-full items-center justify-center gap-2 pt-2 text-xs text-rose-300 transition hover:text-rose-100"
+              >
+                💌 Everything said so far
+                <span className="text-rose-500">({history.length})</span>
+                {unread > 0 && (
+                  <span className="grid size-4 place-items-center rounded-full bg-pink-500 text-[9px] font-bold text-white">
+                    {unread}
+                  </span>
+                )}
+              </button>
+            )}
+
             {error && <p className="text-xs text-rose-400">{error}</p>}
           </div>
         )}
       </Modal>
 
       {/* history */}
-      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="Things you've said 💌">
+      <Modal open={showHistory} onClose={closeHistory} title="Kind words 💌">
         {history.length === 0 ? (
           <p className="py-6 text-center text-sm text-rose-300">
             Nothing yet. Go on — say the thing.
