@@ -1,0 +1,297 @@
+/* ===========================================================================
+   Palettes and backgrounds
+   ---------------------------------------------------------------------------
+   The whole app is written in stock Tailwind rose/pink classes. In Tailwind v4
+   those resolve to CSS variables at use time, so redefining the scale on <html>
+   retints all fifteen screens without touching a single className.
+
+   That is why these are named palettes rather than a colour picker: the UI
+   leans on eleven steps of one hue, and a single arbitrary hex cannot fill them
+   in without putting unreadable text somewhere. Each palette below is a
+   complete, checked scale.
+   =========================================================================== */
+
+/* --- violet ------------------------------------------------------------- */
+html[data-accent='violet'] {
+  --color-rose-50: #f5f3ff;
+  --color-rose-100: #ede9fe;
+  --color-rose-200: #ddd6fe;
+  --color-rose-300: #c4b5fd;
+  --color-rose-400: #a78bfa;
+  --color-rose-500: #8b5cf6;
+  --color-rose-600: #7c3aed;
+  --color-rose-700: #6d28d9;
+  --color-rose-800: #5b21b6;
+  --color-rose-900: #3b1076;
+  --color-rose-950: #1e0938;
+
+  --color-pink-100: #fae8ff;
+  --color-pink-200: #f5d0fe;
+  --color-pink-300: #f0abfc;
+  --color-pink-400: #e879f9;
+  --color-pink-500: #d946ef;
+  --color-pink-600: #c026d3;
+  --color-pink-800: #86198f;
+  --color-pink-950: #4a044e;
+
+  --color-canvas: #150a24;
+  --color-sunken: #1c0c2e;
+  --color-surface: #2a1046;
+  --color-raised: #351456;
+  --color-line: #6d28d9;
+  --color-ink: #f5f3ff;
+  --color-ink-soft: #ede9fe;
+  --color-ink-muted: #c4b5fd;
+  --color-ink-faint: #a78bfa;
+  --color-lav-300: #f0abfc;
+  --color-lav-400: #e879f9;
+  --color-lav-500: #c026d3;
+  --color-lav-600: #a21caf;
+  --color-blush-300: #f5d0fe;
+  --color-blush-400: #e879f9;
+  --color-blush-500: #d946ef;
+  --color-blush-600: #f0abfc;
+
+  --bg-a: #2e1065;
+  --bg-b: #5b21b6;
+  --bg-c: #3b0764;
+}
+
+/* --- ocean -------------------------------------------------------------- */
+html[data-accent='ocean'] {
+  --color-rose-50: #f0fdfa;
+  --color-rose-100: #ccfbf1;
+  --color-rose-200: #99f6e4;
+  --color-rose-300: #5eead4;
+  --color-rose-400: #2dd4bf;
+  --color-rose-500: #14b8a6;
+  --color-rose-600: #0d9488;
+  --color-rose-700: #0f766e;
+  --color-rose-800: #115e59;
+  --color-rose-900: #0c3b3a;
+  --color-rose-950: #042f2e;
+
+  --color-pink-100: #cffafe;
+  --color-pink-200: #a5f3fc;
+  --color-pink-300: #67e8f9;
+  --color-pink-400: #22d3ee;
+  --color-pink-500: #06b6d4;
+  --color-pink-600: #0891b2;
+  --color-pink-800: #155e75;
+  --color-pink-950: #083344;
+
+  --color-canvas: #04201f;
+  --color-sunken: #052a29;
+  --color-surface: #0a3f3d;
+  --color-raised: #0d4c49;
+  --color-line: #0f766e;
+  --color-ink: #f0fdfa;
+  --color-ink-soft: #ccfbf1;
+  --color-ink-muted: #5eead4;
+  --color-ink-faint: #2dd4bf;
+  --color-lav-300: #67e8f9;
+  --color-lav-400: #22d3ee;
+  --color-lav-500: #0891b2;
+  --color-lav-600: #0e7490;
+  --color-blush-300: #a5f3fc;
+  --color-blush-400: #22d3ee;
+  --color-blush-500: #06b6d4;
+  --color-blush-600: #67e8f9;
+
+  --bg-a: #042f2e;
+  --bg-b: #115e59;
+  --bg-c: #083344;
+}
+
+/* --- ember -------------------------------------------------------------- */
+html[data-accent='ember'] {
+  --color-rose-50: #fffbeb;
+  --color-rose-100: #fef3c7;
+  --color-rose-200: #fde68a;
+  --color-rose-300: #fcd34d;
+  --color-rose-400: #fbbf24;
+  --color-rose-500: #f59e0b;
+  --color-rose-600: #d97706;
+  --color-rose-700: #b45309;
+  --color-rose-800: #92400e;
+  --color-rose-900: #5c2a09;
+  --color-rose-950: #331705;
+
+  --color-pink-100: #ffedd5;
+  --color-pink-200: #fed7aa;
+  --color-pink-300: #fdba74;
+  --color-pink-400: #fb923c;
+  --color-pink-500: #f97316;
+  --color-pink-600: #ea580c;
+  --color-pink-800: #9a3412;
+  --color-pink-950: #431407;
+
+  --color-canvas: #241004;
+  --color-sunken: #2e1506;
+  --color-surface: #45200a;
+  --color-raised: #55290c;
+  --color-line: #b45309;
+  --color-ink: #fffbeb;
+  --color-ink-soft: #fef3c7;
+  --color-ink-muted: #fcd34d;
+  --color-ink-faint: #fbbf24;
+  --color-lav-300: #fdba74;
+  --color-lav-400: #fb923c;
+  --color-lav-500: #ea580c;
+  --color-lav-600: #c2410c;
+  --color-blush-300: #fed7aa;
+  --color-blush-400: #fb923c;
+  --color-blush-500: #f97316;
+  --color-blush-600: #fdba74;
+
+  --bg-a: #451a03;
+  --bg-b: #9a3412;
+  --bg-c: #431407;
+}
+
+/* --- forest ------------------------------------------------------------- */
+html[data-accent='forest'] {
+  --color-rose-50: #ecfdf5;
+  --color-rose-100: #d1fae5;
+  --color-rose-200: #a7f3d0;
+  --color-rose-300: #6ee7b7;
+  --color-rose-400: #34d399;
+  --color-rose-500: #10b981;
+  --color-rose-600: #059669;
+  --color-rose-700: #047857;
+  --color-rose-800: #065f46;
+  --color-rose-900: #033a2b;
+  --color-rose-950: #022c22;
+
+  --color-pink-100: #ecfccb;
+  --color-pink-200: #d9f99d;
+  --color-pink-300: #bef264;
+  --color-pink-400: #a3e635;
+  --color-pink-500: #84cc16;
+  --color-pink-600: #65a30d;
+  --color-pink-800: #3f6212;
+  --color-pink-950: #1a2e05;
+
+  --color-canvas: #03201a;
+  --color-sunken: #042a22;
+  --color-surface: #064435;
+  --color-raised: #075040;
+  --color-line: #047857;
+  --color-ink: #ecfdf5;
+  --color-ink-soft: #d1fae5;
+  --color-ink-muted: #6ee7b7;
+  --color-ink-faint: #34d399;
+  --color-lav-300: #bef264;
+  --color-lav-400: #a3e635;
+  --color-lav-500: #65a30d;
+  --color-lav-600: #4d7c0f;
+  --color-blush-300: #d9f99d;
+  --color-blush-400: #a3e635;
+  --color-blush-500: #84cc16;
+  --color-blush-600: #bef264;
+
+  --bg-a: #022c22;
+  --bg-b: #065f46;
+  --bg-c: #1a2e05;
+}
+
+/* --- midnight ----------------------------------------------------------- */
+html[data-accent='midnight'] {
+  --color-rose-50: #f8fafc;
+  --color-rose-100: #f1f5f9;
+  --color-rose-200: #e2e8f0;
+  --color-rose-300: #cbd5e1;
+  --color-rose-400: #94a3b8;
+  --color-rose-500: #64748b;
+  --color-rose-600: #475569;
+  --color-rose-700: #334155;
+  --color-rose-800: #1e293b;
+  --color-rose-900: #131c2e;
+  --color-rose-950: #020617;
+
+  --color-pink-100: #e0e7ff;
+  --color-pink-200: #c7d2fe;
+  --color-pink-300: #a5b4fc;
+  --color-pink-400: #818cf8;
+  --color-pink-500: #6366f1;
+  --color-pink-600: #4f46e5;
+  --color-pink-800: #3730a3;
+  --color-pink-950: #1e1b4b;
+
+  --color-canvas: #05070f;
+  --color-sunken: #0a0e1a;
+  --color-surface: #151d31;
+  --color-raised: #1e293b;
+  --color-line: #334155;
+  --color-ink: #f8fafc;
+  --color-ink-soft: #f1f5f9;
+  --color-ink-muted: #cbd5e1;
+  --color-ink-faint: #94a3b8;
+  --color-lav-300: #a5b4fc;
+  --color-lav-400: #818cf8;
+  --color-lav-500: #4f46e5;
+  --color-lav-600: #4338ca;
+  --color-blush-300: #c7d2fe;
+  --color-blush-400: #818cf8;
+  --color-blush-500: #6366f1;
+  --color-blush-600: #a5b4fc;
+
+  --bg-a: #020617;
+  --bg-b: #1e293b;
+  --bg-c: #1e1b4b;
+}
+
+/* ===========================================================================
+   Backgrounds
+   ---------------------------------------------------------------------------
+   Every one uses the palette's own --bg-* so a background and an accent can
+   never be chosen into an ugly pair.
+   =========================================================================== */
+
+:root {
+  --bg-a: #4c0519;
+  --bg-b: #881337;
+  --bg-c: #500724;
+}
+
+html[data-bg='glow'] body {
+  background: linear-gradient(to bottom right, var(--bg-a), var(--bg-b), var(--bg-c));
+  background-attachment: fixed;
+}
+
+html[data-bg='plain'] body {
+  background: var(--bg-a);
+}
+
+/* Soft drifting blooms. Two radial gradients over the flat colour, moved by a
+   long slow animation — cheap enough to leave running, and it makes the page
+   feel lit rather than printed. */
+html[data-bg='aurora'] body {
+  background:
+    radial-gradient(closest-side at 18% 18%, color-mix(in oklab, var(--bg-b) 85%, white) 0%, transparent 70%),
+    radial-gradient(closest-side at 82% 72%, color-mix(in oklab, var(--bg-c) 85%, white) 0%, transparent 70%),
+    var(--bg-a);
+  background-attachment: fixed;
+  animation: aurora-drift 26s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift {
+  from { background-position: 0% 0%, 100% 100%, 0 0; }
+  to   { background-position: 12% 8%, 88% 92%, 0 0; }
+}
+
+/* Small points of light. A repeating-gradient rather than generated elements,
+   so it costs nothing and scrolls with the page. */
+html[data-bg='stars'] body {
+  background:
+    radial-gradient(1px 1px at 20% 30%, rgb(255 255 255 / 0.6) 50%, transparent 50%),
+    radial-gradient(1px 1px at 70% 65%, rgb(255 255 255 / 0.5) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 45% 85%, rgb(255 255 255 / 0.4) 50%, transparent 50%),
+    linear-gradient(to bottom right, var(--bg-a), var(--bg-b), var(--bg-c));
+  background-size: 180px 180px, 240px 240px, 300px 300px, 100% 100%;
+  background-attachment: fixed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-bg='aurora'] body { animation: none; }
+}

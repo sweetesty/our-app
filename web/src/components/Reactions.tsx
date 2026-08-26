@@ -1,8 +1,20 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useSession } from '../context/SessionProvider'
 import { cx } from './ui'
 
 export type ReactionRow = { emoji: string; mine: boolean }
+
+/**
+ * The set this couple actually uses — theirs if they picked some in Settings,
+ * otherwise the built-in list. A hook so the picker and the one-tap buttons on
+ * a photo can never drift apart.
+ */
+export function useReactionSet(): string[] {
+  const { summary } = useSession()
+  const custom = summary?.couple?.reactions
+  return custom && custom.length > 0 ? custom : [...REACTION_SET]
+}
 
 /**
  * The first three double as the one-tap buttons on a moment card, so the ones
@@ -36,6 +48,7 @@ export default function Reactions({
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const picker = useReactionSet()
 
   // Group into "❤️ 2" tallies, remembering whether one of them is yours.
   const tally = reactions.reduce<Record<string, { count: number; mine: boolean }>>(
@@ -104,7 +117,7 @@ export default function Reactions({
                 row, so a left-anchored popup ran off the screen edge and half
                 the emoji were unreachable. */}
             <div className="absolute right-0 bottom-full z-50 mb-2 grid w-max max-w-[min(19rem,calc(100vw-2.5rem))] grid-cols-6 gap-0.5 rounded-2xl border border-rose-700/50 bg-rose-950/95 p-2 shadow-2xl backdrop-blur">
-              {REACTION_SET.map((emoji) => (
+              {picker.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => void toggle(emoji)}

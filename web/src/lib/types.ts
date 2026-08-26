@@ -8,6 +8,10 @@ export type Profile = {
   couple_id: string | null
   joined_at: string | null
   created_at: string
+  /** What you call them. Stored on your row, not theirs. */
+  partner_nickname: string | null
+  /** Only present on `partner` when a nickname is standing in for it. */
+  real_name?: string
 }
 
 export type Couple = {
@@ -17,6 +21,11 @@ export type Couple = {
   anniversary: string | null
   created_by: string
   created_at: string
+  avatar_url: string | null
+  accent: string
+  background: string
+  /** Overrides the built-in reaction set. Null means use the default. */
+  reactions: string[] | null
 }
 
 export type CoupleStats = {

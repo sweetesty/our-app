@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { signedUrl } from '../lib/media'
 import { useSession } from '../context/SessionProvider'
 import { useDaysSince } from '../lib/useDaysSince'
 import InAppAlerts from './InAppAlerts'
@@ -28,6 +29,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const streak = summary?.stats?.current_streak ?? 0
   const together = useDaysSince(couple?.anniversary)
 
+  // Stored as a storage path, so it needs signing before it can be shown.
+  const [coupleAvatar, setCoupleAvatar] = useState<string | null>(null)
+  useEffect(() => {
+    if (!couple?.avatar_url) return setCoupleAvatar(null)
+    void signedUrl(couple.avatar_url).then(setCoupleAvatar)
+  }, [couple?.avatar_url])
+
   return (
     <div className="min-h-dvh flex flex-col text-rose-50 selection:bg-rose-500 selection:text-white">
       <InAppAlerts />
@@ -41,7 +49,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
         style={{ paddingTop: 'max(1rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
       >
         <div className="flex items-center gap-3">
-          <Logo size={34} />
+          {/* Their photo if they chose one, otherwise the swans. */}
+          {coupleAvatar ? (
+            <img
+              src={coupleAvatar}
+              alt=""
+              className="size-9 shrink-0 rounded-full object-cover ring-1 ring-rose-600/50"
+            />
+          ) : (
+            <Logo size={34} />
+          )}
           <div>
             <h1 className="font-bold text-lg text-white tracking-wide">Our Little World</h1>
             <p className="text-xs text-rose-300">Private Space • Secured for Two</p>

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useSession } from './context/SessionProvider'
 import { Loading } from './components/ui'
 import AppShell from './components/AppShell'
+import ThemeSync from './components/ThemeSync'
 import InstallPrompt from './components/InstallPrompt'
 import Landing from './routes/Landing'
 import AuthScreen from './routes/AuthScreen'
@@ -62,6 +63,8 @@ export default function App() {
 
   return (
     <AppShell>
+      {/* Renders nothing; keeps <html> in step with the chosen palette. */}
+      <ThemeSync />
       <InstallPrompt />
       <Routes>
         <Route path="/" element={<Today />} />

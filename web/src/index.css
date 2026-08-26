@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Palettes and backgrounds. After Tailwind so its scale can be overridden. */
+@import './theme.css';
 
 /* ===========================================================================
    Our Little World

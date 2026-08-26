@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { signedUrls } from '../lib/media'
 import { ago } from '../lib/format'
-import Reactions, { type ReactionRow, REACTION_SET } from './Reactions'
+import Reactions, { type ReactionRow, useReactionSet } from './Reactions'
 import Compliments from './Compliments'
 import { cx } from './ui'
 
@@ -36,6 +36,7 @@ function expiresIn(iso: string | null): string | null {
  */
 export default function MomentStack() {
   const { userId, summary } = useSession()
+  const quickSet = useReactionSet()
   const [moments, setMoments] = useState<Moment[]>([])
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [reactions, setReactions] = useState<Record<string, ReactionRow[]>>({})
@@ -288,7 +289,7 @@ export default function MomentStack() {
 
             {/* one-tap reactions, then the full picker */}
             <div className="flex items-center gap-1.5">
-              {REACTION_SET.slice(0, 3).map((emoji) => (
+              {quickSet.slice(0, 3).map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => void quickReact(current.id, emoji)}

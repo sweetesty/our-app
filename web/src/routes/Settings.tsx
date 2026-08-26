@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { Avatar, Button, ErrorNote, Field, Input, PageHeader } from '../components/ui'
 import PushToggle from '../components/PushToggle'
+import Customize from '../components/Customize'
 
 export default function Settings() {
   const { summary, userId, refresh, signOut } = useSession()
@@ -108,6 +109,8 @@ export default function Settings() {
             </Button>
           </div>
         </section>
+
+        <Customize />
 
         <section className="surface space-y-3 p-6">
           <h2 className="label">Who's here</h2>
