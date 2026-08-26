@@ -56,6 +56,8 @@ export default function MomentStack() {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [flying, setFlying] = useState(false)
+  /** The wind-up on an automatic swipe — the part a finger would do. */
+  const [pulling, setPulling] = useState(false)
   const startX = useRef(0)
   const startTime = useRef(0)
 
@@ -113,16 +115,12 @@ export default function MomentStack() {
   }, [loading])
 
   /**
-   * The stack playing itself.
+   * The stack playing itself, round and round.
    *
-   * Deliberately not a carousel: it goes forward once and stops at the last
-   * photo rather than looping, because a picture sliding past every few
-   * seconds forever is restless in an app whose whole tone is the opposite of
-   * that. Swiping by hand still wraps — that is you asking for it.
-   *
-   * It also gives way to everything: a drag, an open photo, the compliment
-   * sheet, a backgrounded tab, and anyone who has asked the system for less
-   * motion. Once you take over it does not start again.
+   * It gives way to everything: a drag, an open photo, the compliment sheet, a
+   * backgrounded tab, anything scrolled out of view, and anyone who has asked
+   * the system for less motion. Once you take over it does not start again —
+   * nobody wants a photo pulled away mid-sentence by a timer.
    */
   useEffect(() => {
     if (!playing || !onScreen) return
@@ -131,12 +129,9 @@ export default function MomentStack() {
     if (fullscreen || complimenting !== null) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    // The last one is where it rests, not where it wraps.
-    if (index >= moments.length - 1) return
-
     const timer = window.setTimeout(() => {
       if (document.visibilityState !== 'visible') return
-      goto(index + 1, -1)
+      playNext()
     }, HOLD)
 
     return () => window.clearTimeout(timer)
@@ -152,6 +147,26 @@ export default function MomentStack() {
    * never went anywhere. Now it flies out in the direction you pushed it, and
    * the next card is already sitting behind.
    */
+  /**
+   * The stack advancing by itself, done as a hand would do it.
+   *
+   * Going straight to the fly-out reads as the photo being deleted: the card
+   * covers the whole screen width in a quarter of a second from a standing
+   * start, so there is nothing to follow. A real swipe has a wind-up — the card
+   * comes with your finger for a moment, tilting, with the next one growing
+   * behind it, and only then gets released. That first 90px is the whole
+   * difference between a swipe and a cut.
+   */
+  function playNext() {
+    setPulling(true)
+    setDx(-90)
+
+    window.setTimeout(() => {
+      setPulling(false)
+      goto(index + 1, -1)
+    }, 300)
+  }
+
   function goto(next: number, direction: 1 | -1) {
     // Wrap around rather than dead-ending. With only a handful of moments,
     // hitting an invisible wall on the last card feels broken; looping keeps
@@ -273,7 +288,14 @@ export default function MomentStack() {
         {next && (
           <div
             aria-hidden
-            className="absolute inset-x-0 top-0 overflow-hidden rounded-3xl border border-rose-700/30 bg-rose-900/40"
+            className={cx(
+              'absolute inset-x-0 top-0 overflow-hidden rounded-3xl border border-rose-700/30 bg-rose-900/40',
+              // Under a finger it must track exactly, so no transition. On an
+              // automatic swipe dx jumps to its new value in one go, and
+              // without this the card behind snapped to full size while the
+              // one in front was still easing away.
+              !dragging && 'transition-transform duration-300 ease-out',
+            )}
             style={{
               transform: `scale(${0.94 + Math.min(Math.abs(dx), 120) / 2000}) translateY(${
                 12 - Math.min(Math.abs(dx), 120) / 12
@@ -308,7 +330,12 @@ export default function MomentStack() {
             !dragging &&
               (flying
                 ? 'transition-[transform,opacity] duration-[240ms] ease-out'
-                : 'transition-transform duration-500 [transition-timing-function:cubic-bezier(0.18,1.25,0.4,1)]'),
+                : pulling
+                  ? // The wind-up: slow out of the gate and still gathering
+                    // speed when the fly-out takes over, so the two read as one
+                    // continuous movement rather than a nudge and then a jump.
+                    'transition-transform duration-300 [transition-timing-function:cubic-bezier(0.32,0,0.67,0)]'
+                  : 'transition-transform duration-500 [transition-timing-function:cubic-bezier(0.18,1.25,0.4,1)]'),
             // Arriving from the place the card behind was sitting, so the stack
             // reads as advancing by one rather than a photo simply changing.
             // Unconditional: the key above means this node is new every swap,
@@ -430,7 +457,7 @@ export default function MomentStack() {
             // Only the one currently counting down draws a bar. Without it the
             // stack moving on by itself looks like the app doing something you
             // did not ask for.
-            const counting = here && playing && onScreen && index < moments.length - 1
+            const counting = here && playing && onScreen
 
             return (
               <button

@@ -44,7 +44,12 @@ export default defineConfig({
         // The FCM worker is a second, independently-registered service worker.
         // Precaching it here would pin a stale copy and stop push updates
         // reaching the browser.
-        globIgnores: ['**/firebase-messaging-sw.js'],
+        //
+        // The iOS launch screens are excluded for a different reason: thirteen
+        // full-resolution PNGs is 2.6MB, iOS fetches whichever one it needs by
+        // itself, and no device will ever want more than one of them. Left in,
+        // they would make every user download twelve images for nobody.
+        globIgnores: ['**/firebase-messaging-sw.js', 'splash/**'],
 
         runtimeCaching: [
           {

@@ -11,6 +11,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { disablePush, refreshPushRegistration } from '../lib/push'
 import { badgeCountFrom, clearBadge, setBadge } from '../lib/badge'
+import { dismissBoot } from '../lib/boot'
 import type { HomeSummary } from '../lib/types'
 
 type SessionValue = {
@@ -70,6 +71,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSession(data.session)
       if (data.session) await refresh()
       if (active) setReady(true)
+      // Everything the first screen needs is here now, so the splash can go.
+      dismissBoot()
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {

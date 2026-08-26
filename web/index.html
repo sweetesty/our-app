@@ -19,6 +19,102 @@
         background-color: #1a0b0f;
         color-scheme: dark;
       }
+
+      /* The boot screen.
+
+         The iOS launch images below cover the moment before the browser has
+         anything at all. This covers the one after — the second or two while
+         the bundle downloads and the session is checked, which used to be a
+         blank page. It is inline rather than in the stylesheet on purpose:
+         a stylesheet is a request, and this has to be on screen before any
+         request comes back.
+
+         The swans are the one piece of artwork that says which app this is,
+         so they carry it, breathing rather than spinning. A spinner says
+         "waiting"; this says "opening". */
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.15rem;
+        background: var(--boot-bg, #1a0b0f);
+        transition:
+          opacity 0.5s ease,
+          visibility 0.5s;
+      }
+
+      /* Set the moment the app knows who you are, not merely when React
+         mounts — otherwise it lifts on an empty frame and drops you on a
+         half-built screen. */
+      html[data-booted] #boot {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      #boot .stack {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+
+      #boot .halo {
+        position: absolute;
+        width: 15rem;
+        height: 15rem;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.28), transparent 62%);
+        animation: boot-halo 3s ease-in-out infinite;
+      }
+
+      #boot .mark {
+        position: relative;
+        width: 6.75rem;
+        height: 6.75rem;
+        object-fit: contain;
+        animation: boot-float 3s ease-in-out infinite;
+      }
+
+      #boot .name {
+        margin: 0;
+        font:
+          600 0.9rem/1 'Plus Jakarta Sans',
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #fda4af;
+        opacity: 0;
+        animation: boot-in 0.9s ease-out 0.35s forwards;
+      }
+
+      @keyframes boot-float {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50%      { transform: translateY(-9px) scale(1.04); }
+      }
+
+      @keyframes boot-halo {
+        0%, 100% { opacity: 0.5; transform: scale(0.9); }
+        50%      { opacity: 1; transform: scale(1.1); }
+      }
+
+      @keyframes boot-in {
+        to { opacity: 1; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot .halo,
+        #boot .mark,
+        #boot .name {
+          animation: none;
+          opacity: 1;
+        }
+      }
     </style>
     <script>
       // The palette they actually chose, before first paint. main.tsx does
@@ -38,6 +134,8 @@
         document.documentElement.dataset.accent = accent
         document.documentElement.dataset.bg = saved.background || 'glow'
         document.documentElement.style.backgroundColor = canvases[accent]
+        // The boot screen picks this up, so it opens in their colour too.
+        document.documentElement.style.setProperty('--boot-bg', canvases[accent])
       } catch (e) {
         // Private mode, or no choice made yet. The inline style above stands.
       }
@@ -47,6 +145,27 @@
     <!-- iOS ignores the manifest icons and composites transparency against
          black, so this one is opaque and supplied separately. -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- iOS launch screens.
+
+         Safari does not synthesise a splash for a home-screen web app the way
+         Chrome does from the manifest, so without these it shows a blank white
+         page until the first paint. iOS only accepts an image whose media query
+         matches the device exactly — a near miss is ignored rather than scaled,
+         which is why there is one per screen. Regenerate with npm run splash. -->
+    <link rel="apple-touch-startup-image" href="/splash/splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1260x2736.png" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    <link rel="apple-touch-startup-image" href="/splash/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
 
     <!-- Home-screen behaviour. iOS only grants push to an installed PWA, and
          only reads these tags — not the web app manifest. -->
@@ -81,7 +200,26 @@
        Plain and Aurora all painted the same thing. The background belongs to
        index.css and theme.css, where the palette can reach it. -->
   <body>
+    <div id="boot" aria-hidden="true">
+      <div class="stack">
+        <span class="halo"></span>
+        <!-- Precached by the service worker, so on every launch after the
+             first it is already on the device and paints immediately. -->
+        <img class="mark" src="/logo-mark.png" alt="" />
+      </div>
+      <p class="name">Our Little World</p>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      // A backstop. The app lifts this itself once it knows who you are, but a
+      // bundle that fails to load would otherwise leave the swans breathing
+      // over a screen that is never coming.
+      setTimeout(function () {
+        document.documentElement.setAttribute('data-booted', '')
+      }, 10000)
+    </script>
   </body>
 </html>

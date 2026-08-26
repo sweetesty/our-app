@@ -39,7 +39,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [couple?.avatar_url])
 
   return (
-    <div className="min-h-dvh flex flex-col text-rose-50 selection:bg-rose-500 selection:text-white">
+    /* A fixed shell with one scrolling pane, rather than one long scrolling
+       page.
+
+       The page-scroll version meant the chat composer was `sticky bottom-0`
+       against a container whose bottom edge moved with the document — so
+       scrolling up through the thread dragged the composer up off the bottom of
+       the screen with it. Sticky can only pin to the bottom of the thing that
+       scrolls, so the thing that scrolls has to be the content pane.
+
+       It also stops the browser chrome from growing and shrinking under the
+       header on every flick, which is what made the header appear to jump. */
+    <div className="flex h-dvh flex-col overflow-hidden text-rose-50 selection:bg-rose-500 selection:text-white">
       <InAppAlerts />
 
       {/* Top Navigation / Header */}
@@ -50,7 +61,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           tagline were folding onto three lines and pushing the day count off
           the row — a header taller than the content under it. */}
       <header
-        className="dark-glass sticky top-0 z-50 flex w-full items-center justify-between gap-2 border-b border-rose-800/40 px-4 pb-3 sm:gap-4 sm:px-6 sm:pb-4"
+        className="dark-glass z-50 flex w-full shrink-0 items-center justify-between gap-2 border-b border-rose-800/40 px-4 pb-3 sm:gap-4 sm:px-6 sm:pb-4"
         style={{ paddingTop: 'max(0.875rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
       >
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -105,7 +116,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           part that was missing is that it never scrolled itself — land on
           Settings from a notification and the active tab was three swipes off
           the right edge with nothing to say so. */}
-      <nav className="scrollbar-none flex gap-2 overflow-x-auto border-b border-rose-800/30 bg-rose-950/40 px-4 py-3 sm:px-6">
+      <nav className="scrollbar-none flex shrink-0 gap-2 overflow-x-auto border-b border-rose-800/30 bg-rose-950/40 px-4 py-3 sm:px-6">
         {NAV.map((item) => (
           <NavItem
             key={item.to}
@@ -127,8 +138,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       {/* App Container */}
+      {/* The only thing on the page that scrolls. min-h-0 is what lets it:
+          a flex child will not shrink below its content without it, and the
+          pane would grow the shell instead of scrolling inside it. */}
       <main
-        className="mx-auto flex w-full max-w-2xl min-w-0 flex-grow flex-col gap-5 px-4 py-5 sm:gap-6 sm:p-6"
+        className="mx-auto flex w-full max-w-2xl min-w-0 min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-5 sm:gap-6 sm:p-6"
         // Clear the home indicator on gesture-navigation phones.
         style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
       >
