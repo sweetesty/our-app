@@ -175,7 +175,143 @@ export default function Settings() {
         <Button variant="ghost" onClick={() => void signOut()}>
           Sign out
         </Button>
+
+        <DangerZone partnerName={partner?.display_name ?? 'them'} onDone={refresh} />
       </div>
     </>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+
+const DOORS = [
+  {
+    rpc: 'wipe_couple_data',
+    emoji: '🧹',
+    title: 'Empty the space',
+    blurb:
+      'Deletes every note, photo, card, letter and message — and the files behind them. Both accounts and the space itself stay, so you can start again from nothing.',
+  },
+  {
+    rpc: 'delete_couple',
+    emoji: '💔',
+    title: 'Delete our space',
+    blurb:
+      'Everything above, and the space goes too. You both keep your logins and can pair again — with each other or not. They are not asked first.',
+  },
+  {
+    rpc: 'delete_my_account',
+    emoji: '🚪',
+    title: 'Delete my account',
+    blurb:
+      'Everything above, plus your login. This takes the shared space with it: half a two-person space is not a thing worth leaving behind, and pretending otherwise would quietly delete your half of their memories anyway.',
+  },
+] as const
+
+/**
+ * A way out.
+ *
+ * Until now the only exit was asking someone to run SQL against the database.
+ * Every door needs the word DELETE typed: a confirm dialog can be tapped
+ * through by accident, and none of this can be undone.
+ */
+function DangerZone({ partnerName, onDone }: { partnerName: string; onDone: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [chosen, setChosen] = useState<(typeof DOORS)[number] | null>(null)
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function run() {
+    if (!chosen || confirm !== 'DELETE') return
+    setBusy(true)
+    setError('')
+
+    const { error: rpcError } = await supabase.rpc(chosen.rpc, { confirm })
+    setBusy(false)
+    if (rpcError) return setError(errorMessage(rpcError))
+
+    // Deleting the account already ended the session server-side; signing out
+    // clears the local one so the app does not sit on a dead token.
+    if (chosen.rpc === 'delete_my_account') {
+      await supabase.auth.signOut()
+      window.location.href = '/'
+      return
+    }
+
+    setChosen(null)
+    setConfirm('')
+    await onDone()
+  }
+
+  return (
+    <section className="rounded-3xl border border-rose-800/50 p-6">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <h2 className="label">Leaving</h2>
+        <span className="text-xs text-rose-400">{open ? 'Hide' : 'Show'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          <p className="text-xs leading-relaxed text-rose-400">
+            None of this can be undone, and {partnerName} is not warned first.
+          </p>
+
+          {DOORS.map((door) => (
+            <div key={door.rpc} className="rounded-2xl border border-rose-800/50 bg-rose-950/40 p-4">
+              <p className="text-sm font-semibold text-white">
+                {door.emoji} {door.title}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-rose-400">{door.blurb}</p>
+
+              {chosen?.rpc === door.rpc ? (
+                <div className="mt-3 space-y-2">
+                  <Input
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="Type DELETE"
+                    autoFocus
+                  />
+                  {error && <ErrorNote>{error}</ErrorNote>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setChosen(null)
+                        setConfirm('')
+                        setError('')
+                      }}
+                      className="rounded-xl bg-rose-900/60 px-4 py-2 text-xs font-semibold text-rose-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => void run()}
+                      disabled={busy || confirm !== 'DELETE'}
+                      className="flex-1 rounded-xl bg-red-700 py-2 text-xs font-semibold text-white transition disabled:opacity-40"
+                    >
+                      {busy ? 'Working…' : `Yes — ${door.title.toLowerCase()}`}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setChosen(door)
+                    setConfirm('')
+                    setError('')
+                  }}
+                  className="mt-3 text-xs font-semibold text-red-400 underline-offset-4 hover:underline"
+                >
+                  {door.title}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

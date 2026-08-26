@@ -36,7 +36,10 @@ export default function Vault() {
 
   const load = useCallback(async () => {
     const { data, error: qErr } = await supabase
-      .from('vault_items')
+      // The view, not the table: it blanks the label and the timing of a
+      // surprise for the person it is for. Reading the table directly would put
+      // the secret on the wire and leave hiding it to this file.
+      .from('vault_inbox')
       .select('*')
       .order('created_at', { ascending: false })
     if (qErr) setError(errorMessage(qErr))
@@ -130,6 +133,9 @@ export default function Vault() {
 function isReady(item: VaultItem) {
   if (item.unlocked_at) return true
   if (item.unlock_type === 'condition') return true // theirs to open whenever it applies
+  // The view computes this, because a surprise hides unlock_at from the person
+  // it is for and they could not work it out otherwise.
+  if (typeof item.ready === 'boolean') return item.ready
   return !!item.unlock_at && new Date(item.unlock_at).getTime() <= Date.now()
 }
 
@@ -145,6 +151,9 @@ function VaultCard({
   const ready = isReady(item)
   const opened = !!item.unlocked_at
   const openable = ready && !mine && !opened
+  // Wrapped: a surprise still sealed, seen by the person it is for. The label
+  // and the timing arrive as null, so there is nothing here to leak.
+  const wrapped = item.is_surprise && !mine && !opened
 
   return (
     <button
@@ -152,22 +161,30 @@ function VaultCard({
       className="animate-rise flex w-full items-center justify-between gap-3 rounded-2xl border border-rose-700/40 bg-rose-900/30 p-4 text-left transition hover:border-pink-500/40"
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="text-2xl">{opened ? '💌' : openable ? '💌' : '🔒'}</span>
+        <span className="text-2xl">
+          {wrapped ? '🎁' : opened ? '💌' : openable ? '💌' : '🔒'}
+        </span>
         <span className="min-w-0">
-          <span className="block truncate text-sm font-bold text-white">{item.label}</span>
+          <span className="block truncate text-sm font-bold text-white">
+            {wrapped ? 'A surprise' : item.label}
+          </span>
           <span
             className={cx(
               'block text-xs',
               openable ? 'text-pink-300' : 'text-rose-300',
             )}
           >
-            {item.unlock_type === 'condition'
-              ? `Open ${item.unlock_condition}`
-              : opened
-                ? `Opened ${when(item.unlocked_at)}`
-                : openable
-                  ? 'Ready to unlock!'
-                  : `Locked · ${untilUnlock(item.unlock_at)}`}
+            {wrapped
+              ? openable
+                ? 'Ready — open it 🎁'
+                : (item.teaser ?? 'You’ll find out when it opens.')
+              : item.unlock_type === 'condition'
+                ? `Open ${item.unlock_condition}`
+                : opened
+                  ? `Opened ${when(item.unlocked_at)}`
+                  : openable
+                    ? 'Ready to unlock!'
+                    : `Locked · ${untilUnlock(item.unlock_at)}`}
           </span>
         </span>
       </span>
@@ -365,6 +382,8 @@ function Composer({
   const [condition, setCondition] = useState(CONDITION_PRESETS[0])
   const [file, setFile] = useState<File | null>(null)
   const [emailIt, setEmailIt] = useState(false)
+  const [surprise, setSurprise] = useState(false)
+  const [teaser, setTeaser] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -374,6 +393,8 @@ function Composer({
     setBody('')
     setFile(null)
     setEmailIt(false)
+    setSurprise(false)
+    setTeaser('')
     setError('')
     const soon = new Date()
     soon.setMonth(soon.getMonth() + 1)
@@ -400,6 +421,8 @@ function Composer({
           // Only meaningful for date-locked letters — a condition-locked one
           // opens whenever they choose, so there is no moment to email on.
           email_on_unlock: mode === 'date' ? emailIt : false,
+          is_surprise: surprise,
+          teaser: surprise ? teaser.trim() || null : null,
         })
         .select()
         .single()
@@ -537,9 +560,41 @@ function Composer({
           </label>
         )}
 
+        {/* A sealed letter announces itself: "Open on your birthday", counting
+            down in plain sight. Lovely for a letter, useless for a surprise. */}
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-rose-700/40 bg-rose-900/20 p-4">
+          <input
+            type="checkbox"
+            checked={surprise}
+            onChange={(e) => setSurprise(e.target.checked)}
+            className="mt-0.5 size-4 accent-pink-500"
+          />
+          <span className="text-xs leading-relaxed text-rose-300">
+            <span className="font-semibold text-white">Make it a surprise 🎁</span>
+            <br />
+            They'll see a wrapped box with no name and no countdown — not even
+            the date. The label is hidden by the database, not just by the
+            screen.
+          </span>
+        </label>
+
+        {surprise && (
+          <Field
+            label="Teaser"
+            hint="All they get beforehand. Leave it blank to say nothing at all."
+          >
+            <Input
+              value={teaser}
+              onChange={(e) => setTeaser(e.target.value)}
+              placeholder="something for later…"
+              maxLength={80}
+            />
+          </Field>
+        )}
+
         {error && <ErrorNote>{error}</ErrorNote>}
         <Button className="w-full" loading={busy} disabled={!label.trim()} onClick={() => void save()}>
-          Seal it
+          {surprise ? 'Wrap it 🎁' : 'Seal it'}
         </Button>
       </div>
     </Modal>

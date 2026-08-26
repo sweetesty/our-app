@@ -32,6 +32,7 @@ type PushEvent = {
     | 'memory'
     | 'photo'
     | 'reveal'
+    | 'surprise'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -89,6 +90,8 @@ function pathFor(type: string): string {
       return '/chat'
     case 'memory':
       return '/timeline'
+    case 'surprise':
+      return '/vault'
     case 'photo':
     case 'reveal':
       return '/' // the reveal lives on Today, beside the question
@@ -251,6 +254,18 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     return {
       title: `${event.sender_name} sent you a moment 📸`,
       body: event.message ?? 'A glimpse of where they are right now.',
+    }
+  }
+
+  if (event.type === 'surprise') {
+    const wrapped = event.kind === 'surprise'
+    return {
+      title: wrapped
+        ? `${event.sender_name} left you a surprise 🎁`
+        : `${event.sender_name} sealed you a letter 🔒`,
+      // For a surprise this is the teaser, never the label — the label is the
+      // thing being kept. Falls back to saying nothing at all.
+      body: event.message ?? (wrapped ? "You'll find out when it opens." : 'Waiting in the vault.'),
     }
   }
 

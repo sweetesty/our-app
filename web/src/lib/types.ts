@@ -163,6 +163,15 @@ export type VaultItem = {
   unlock_condition: string | null
   unlocked_at: string | null
   created_at: string
+  /** A surprise hides its label and its timing from the recipient. */
+  is_surprise: boolean
+  /** All they're told beforehand, if anything. Never the label. */
+  teaser: string | null
+  /**
+   * Computed by the vault_inbox view. The recipient cannot see unlock_at on a
+   * surprise, so they cannot work this out for themselves — which is the point.
+   */
+  ready: boolean
 }
 
 export type VaultContents = {
