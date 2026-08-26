@@ -7,6 +7,15 @@ type Diagnosis = {
   my_devices: number
   their_devices: number
   recent: { status_code: number | null; reply: string; created: string }[] | null
+  jobs:
+    | {
+        name: string
+        schedule: string
+        active: boolean
+        last_run: string | null
+        last_status: string | null
+      }[]
+    | null
 }
 
 /**
@@ -79,6 +88,24 @@ export default function PushDoctor() {
             ok={result.their_devices > 0}
             good={`They have ${result.their_devices} phone${result.their_devices === 1 ? '' : 's'} registered.`}
             bad="They have no phone registered, so nothing you do can reach them. They need to turn notifications on, on their own device."
+          />
+
+          {/* A vault letter is the one notification nothing writes a row for —
+              it becomes openable because time passed. An hourly job announces
+              those, so if it is not scheduled, no letter is ever announced. */}
+          <Line
+            ok={Boolean(result.jobs?.some((j) => j.name === 'vault-unlock-notifier' && j.active))}
+            good={(() => {
+              const job = result.jobs?.find((j) => j.name === 'vault-unlock-notifier')
+              return job?.last_run
+                ? `The vault announcer last ran ${new Date(job.last_run).toLocaleString()} (${job.last_status}).`
+                : 'The vault announcer is scheduled but has not run yet.'
+            })()}
+            bad={
+              result.jobs === null
+                ? "Couldn't read the schedule on this project."
+                : 'The hourly vault announcer is not scheduled — a letter reaching its date will never say so. Re-run migration 0009.'
+            }
           />
 
           {result.recent === null ? (

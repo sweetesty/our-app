@@ -21,7 +21,7 @@ create or replace function public.push_diagnostics()
 returns jsonb
 language plpgsql
 security definer
-set search_path = public, extensions, net
+set search_path = public, extensions, net, cron
 as $$
 declare
   cfg record;
@@ -41,6 +41,32 @@ begin
       select count(*) from public.device_tokens where user_id = public.partner_id()
     )
   );
+
+  -- A vault letter is the one notification nothing writes a row for: it
+  -- becomes openable because time passed. An hourly job announces those, so
+  -- if the job is not scheduled, no letter is ever announced no matter how
+  -- healthy the rest of the chain is.
+  begin
+    result := result || jsonb_build_object('jobs', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'name', j.jobname,
+        'schedule', j.schedule,
+        'active', j.active,
+        'last_run', (
+          select d.end_time from cron.job_run_details d
+          where d.jobid = j.jobid order by d.end_time desc limit 1
+        ),
+        'last_status', (
+          select d.status from cron.job_run_details d
+          where d.jobid = j.jobid order by d.end_time desc limit 1
+        )
+      ))
+      from cron.job j
+    ), '[]'::jsonb));
+  exception
+    when others then
+      result := result || jsonb_build_object('jobs', null);
+  end;
 
   -- pg_net keeps responses for a short while and then sweeps them. An empty
   -- list here does not prove nothing was sent — but a list of 500s does prove

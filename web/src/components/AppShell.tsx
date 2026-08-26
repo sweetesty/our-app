@@ -25,11 +25,46 @@ const NAV = [
 export default function AppShell({ children }: { children: ReactNode }) {
   const { summary } = useSession()
   const { pathname } = useLocation()
+  /** Screens that need the whole box and do their own scrolling. */
+  const ownsItsScrolling = pathname.startsWith('/chat')
   const couple = summary?.couple
   // The header said "Streak" but showed days-since-anniversary, which is a
   // different number entirely — and read as 0 for anyone who never set one.
   const streak = summary?.stats?.current_streak ?? 0
   const together = useDaysSince(couple?.anniversary)
+
+  /**
+   * The shell's height, measured rather than assumed.
+   *
+   * iOS does not shrink the layout viewport when the keyboard comes up — it
+   * leaves the page its full height and slides it up behind the keys. So a
+   * shell sized with 100dvh keeps its bottom row somewhere under the keyboard,
+   * which is how the composer ended up stranded in the middle of the screen
+   * with messages visible below it.
+   *
+   * visualViewport is the part actually on screen, keyboard subtracted. The
+   * scrollTo undoes the shove iOS gives the page on the way in; without it the
+   * header goes up under the status bar and stays there.
+   */
+  useEffect(() => {
+    const view = window.visualViewport
+    if (!view) return
+
+    const measure = () => {
+      document.documentElement.style.setProperty('--app-height', `${view.height}px`)
+      if (view.offsetTop > 0) window.scrollTo(0, 0)
+    }
+
+    measure()
+    view.addEventListener('resize', measure)
+    view.addEventListener('scroll', measure)
+
+    return () => {
+      view.removeEventListener('resize', measure)
+      view.removeEventListener('scroll', measure)
+      document.documentElement.style.removeProperty('--app-height')
+    }
+  }, [])
 
   // Stored as a storage path, so it needs signing before it can be shown.
   const [coupleAvatar, setCoupleAvatar] = useState<string | null>(null)
@@ -50,7 +85,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
        It also stops the browser chrome from growing and shrinking under the
        header on every flick, which is what made the header appear to jump. */
-    <div className="flex h-dvh flex-col overflow-hidden text-rose-50 selection:bg-rose-500 selection:text-white">
+    <div
+      className="flex flex-col overflow-hidden text-rose-50 selection:bg-rose-500 selection:text-white"
+      // dvh is the fallback for anything without visualViewport; the measured
+      // value wins the moment there is one.
+      style={{ height: 'var(--app-height, 100dvh)' }}
+    >
       <InAppAlerts />
 
       {/* Top Navigation / Header */}
@@ -138,13 +178,35 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       {/* App Container */}
-      {/* The only thing on the page that scrolls. min-h-0 is what lets it:
-          a flex child will not shrink below its content without it, and the
-          pane would grow the shell instead of scrolling inside it. */}
+      {/* The content pane. min-h-0 is what lets it scroll: a flex child will
+          not shrink below its content without it, and the pane would grow the
+          shell instead of scrolling inside it.
+
+          Chat is the exception. It has a composer that must sit on the bottom
+          edge and never move, which means the thread has to be its own scroll
+          area with the composer outside it — so that screen gets the box
+          unpadded and unscrolled, and manages both itself. Anything sticky in
+          a padded scroll container ends up floating above the padding with
+          content sliding underneath it, which is exactly what it looked like. */}
       <main
-        className="mx-auto flex w-full max-w-2xl min-w-0 min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-5 sm:gap-6 sm:p-6"
-        // Clear the home indicator on gesture-navigation phones.
-        style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+        className={cx(
+          'mx-auto flex w-full max-w-2xl min-w-0 min-h-0 flex-1 flex-col',
+          ownsItsScrolling
+            ? 'overflow-hidden'
+            : // shrink-0 on the children is not optional. This is a column
+              // flex container with a bounded height now, and a flex child
+              // shrinks below its content by default when the box is too
+              // small — so the short rows collapsed to a few pixels while the
+              // tall ones kept their size. Screens looked like they had lost
+              // their filter chips. They scroll instead.
+              'gap-5 overflow-y-auto px-4 py-5 [&>*]:shrink-0 sm:gap-6 sm:p-6',
+        )}
+        style={
+          ownsItsScrolling
+            ? undefined
+            : // Clear the home indicator on gesture-navigation phones.
+              { paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }
+        }
       >
         {children}
       </main>
