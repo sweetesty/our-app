@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom'
-import { useEffect, useState, type ReactNode } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { signedUrl } from '../lib/media'
 import { useSession } from '../context/SessionProvider'
 import { useDaysSince } from '../lib/useDaysSince'
@@ -24,6 +24,7 @@ const NAV = [
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { summary } = useSession()
+  const { pathname } = useLocation()
   const couple = summary?.couple
   // The header said "Streak" but showed days-since-anniversary, which is a
   // different number entirely — and read as 0 for anyone who never set one.
@@ -45,11 +46,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
       {/* The status bar sits over the page on an installed PWA, so the clock
           and battery were landing on top of the title. Pad by the safe-area
           inset — max() keeps normal spacing on phones that report none. */}
+      {/* Everything here shrinks before it wraps. At 360px the title and the
+          tagline were folding onto three lines and pushing the day count off
+          the row — a header taller than the content under it. */}
       <header
-        className="dark-glass sticky top-0 z-50 flex w-full items-center justify-between border-b border-rose-800/40 px-6 pb-4"
-        style={{ paddingTop: 'max(1rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
+        className="dark-glass sticky top-0 z-50 flex w-full items-center justify-between gap-2 border-b border-rose-800/40 px-4 pb-3 sm:gap-4 sm:px-6 sm:pb-4"
+        style={{ paddingTop: 'max(0.875rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {/* Their photo if they chose one, otherwise the swans. */}
           {coupleAvatar ? (
             <img
@@ -60,18 +64,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
           ) : (
             <Logo size={34} />
           )}
-          <div>
-            <h1 className="font-bold text-lg text-white tracking-wide">Our Little World</h1>
-            <p className="text-xs text-rose-300">Private Space • Secured for Two</p>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold tracking-wide text-white sm:text-lg">
+              Our Little World
+            </h1>
+            <p className="truncate text-[0.7rem] text-rose-300 sm:text-xs">
+              Private Space • Secured for Two
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-rose-950/60 border border-rose-700/50 px-3 py-1.5 rounded-full">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-rose-700/50 bg-rose-950/60 px-2.5 py-1.5 sm:gap-2 sm:px-3">
+          <span className="size-2 shrink-0 animate-ping rounded-full bg-emerald-400 sm:size-2.5"></span>
           {/* Two different numbers were sharing one label. Days together is the
               relationship; the streak is only consecutive days you have both
               answered — so "Streak: 1" next to a 37-day relationship read as
               though the app had forgotten. Show both, labelled. */}
-          <span className="flex items-center gap-2 text-xs font-medium text-rose-200">
+          <span className="flex items-center gap-1.5 text-[0.7rem] font-medium whitespace-nowrap text-rose-200 sm:gap-2 sm:text-xs">
             {together !== null && (
               <span>
                 <strong className="text-white">{together.toLocaleString()}</strong> days 💗
@@ -93,11 +101,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Main Navigation Tabs */}
-      <nav className="flex overflow-x-auto gap-2 px-6 py-3 bg-rose-950/40 border-b border-rose-800/30 scrollbar-none">
+      {/* Twelve tabs on a 360px screen is a scroll strip whatever you do. The
+          part that was missing is that it never scrolled itself — land on
+          Settings from a notification and the active tab was three swipes off
+          the right edge with nothing to say so. */}
+      <nav className="scrollbar-none flex gap-2 overflow-x-auto border-b border-rose-800/30 bg-rose-950/40 px-4 py-3 sm:px-6">
         {NAV.map((item) => (
           <NavItem
             key={item.to}
             {...item}
+            active={
+              item.end ? pathname === item.to : pathname.startsWith(item.to)
+            }
             // Unread counts belong on the tab, not only on the app icon —
             // the icon badge is invisible once you are already inside.
             badge={
@@ -113,7 +128,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* App Container */}
       <main
-        className="mx-auto flex w-full max-w-2xl flex-grow flex-col gap-6 p-6"
+        className="mx-auto flex w-full max-w-2xl min-w-0 flex-grow flex-col gap-5 px-4 py-5 sm:gap-6 sm:p-6"
         // Clear the home indicator on gesture-navigation phones.
         style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
       >
@@ -128,16 +143,28 @@ function NavItem({
   icon,
   label,
   end,
+  active,
   badge = 0,
 }: {
   to: string
   icon: string
   label: string
   end?: boolean
+  active: boolean
   badge?: number
 }) {
+  const ref = useRef<HTMLAnchorElement>(null)
+
+  // Bring the current tab into the strip. `nearest` so it only moves when the
+  // tab is actually out of view, and never scrolls the page itself.
+  useEffect(() => {
+    if (!active) return
+    ref.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [active])
+
   return (
     <NavLink
+      ref={ref}
       to={to}
       end={end}
       className={({ isActive }) =>

@@ -167,6 +167,23 @@ export default function InAppAlerts() {
           detail: compliment.body,
         })
       })
+      .on('postgres_changes', { ...scope, table: 'replies' }, ({ new: row }) => {
+        const reply = row as {
+          id: string
+          author_id: string
+          target_kind: 'note' | 'vault' | 'compliment'
+          body: string
+        }
+        if (reply.author_id === userId) return
+        push({
+          id: reply.id,
+          emoji: '💬',
+          line: `${nameRef.current} wrote back.`,
+          detail: reply.body,
+          // Where the thing they answered lives.
+          path: reply.target_kind === 'vault' ? '/vault' : '/notes',
+        })
+      })
       .subscribe()
 
     return () => {

@@ -335,11 +335,16 @@ export default function Notes() {
               {when(reading.created_at)}
             </p>
 
+            {/* Two rows rather than one merged tally: a note is one of you
+                writing to the other, and "❤️ 2" flattens that into a number
+                nobody owns. */}
             <Reactions
               targetKind="note"
               targetId={reading.id}
               reactions={noteReactions[reading.id] ?? []}
               onChanged={load}
+              sided
+              partnerName={partnerName}
             />
 
             {/* The answer to the note, kept with the note. Typed into chat it

@@ -34,6 +34,7 @@ type PushEvent = {
     | 'reveal'
     | 'surprise'
     | 'reply'
+    | 'test'
   couple_id: string
   sender_id: string
   sender_name: string
@@ -327,13 +328,26 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
+  // Sent by the Settings screen, to this phone only.
+  if (event.type === 'test') {
+    return {
+      title: 'Notifications are working ✓',
+      body: 'If you can read this, this phone is set up properly.',
+    }
+  }
+
   // Answering a note or a letter. The reply itself goes on the lock screen —
   // unlike the note it answers, which sends only its title, because a reply is
   // a message and a message is meant to be read as it lands.
   if (event.type === 'reply') {
     return {
-      title: `${event.sender_name} wrote back 💬`,
-      body: event.message ?? event.label ?? 'Tap to read it.',
+      title: `${event.sender_name} replied to your ${
+        event.kind === 'vault' ? 'letter' : 'note'
+      } 💬`,
+      // Which one, then what they said. The subject is the half you cannot
+      // reconstruct from a lock screen — "you're right, I'm sorry" belongs to
+      // one of five notes and reads as none of them without it.
+      body: event.label ? `“${event.label}” — ${event.message}` : (event.message ?? 'Tap to read it.'),
     }
   }
 

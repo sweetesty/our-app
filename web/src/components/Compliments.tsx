@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { celebrateReveal } from '../lib/celebrate'
 import { ago } from '../lib/format'
+import { signedUrls } from '../lib/media'
 import Reactions, { type ReactionRow } from './Reactions'
 import { cx, Modal } from './ui'
 
@@ -12,9 +13,14 @@ type Compliment = {
   kind: string
   emoji: string
   body: string
+  /** The photo it was said about, if it was said about one. */
+  moment_id: string | null
   seen_at: string | null
   created_at: string
 }
+
+/** Just enough of a moment to recognise it in a list. */
+type Thumb = { url?: string; caption: string | null }
 
 const PRESETS = [
   { kind: 'adorable', emoji: '🥰', body: "You're adorable" },
@@ -41,6 +47,7 @@ export default function Compliments({
   onClose,
   hideTrigger = false,
   view = 'send',
+  momentId = null,
 }: {
   /** Controlled mode: opened from a moment card rather than its own button. */
   open?: boolean
@@ -48,6 +55,8 @@ export default function Compliments({
   hideTrigger?: boolean
   /** Which half opens — the picker, or everything already said. */
   view?: 'send' | 'history'
+  /** The photo being looked at, so the history can say what it was about. */
+  momentId?: string | null
 } = {}) {
   const { userId, summary, refresh } = useSession()
   const [selfOpen, setSelfOpen] = useState(false)
@@ -59,6 +68,7 @@ export default function Compliments({
   }
   const [history, setHistory] = useState<Compliment[]>([])
   const [reactions, setReactions] = useState<Record<string, ReactionRow[]>>({})
+  const [thumbs, setThumbs] = useState<Record<string, Thumb>>({})
   const [custom, setCustom] = useState('')
   const [writing, setWriting] = useState(false)
   const [sending, setSending] = useState<string | null>(null)
@@ -79,13 +89,33 @@ export default function Compliments({
         .eq('target_kind', 'compliment'),
     ])
 
-    setHistory((rows as Compliment[]) ?? [])
+    const list = (rows as Compliment[]) ?? []
+    setHistory(list)
 
     const grouped: Record<string, ReactionRow[]> = {}
     for (const r of (reacts as { target_id: string; emoji: string; user_id: string }[]) ?? []) {
       ;(grouped[r.target_id] ??= []).push({ emoji: r.emoji, mine: r.user_id === userId })
     }
     setReactions(grouped)
+
+    // The photos these were said about. One batched lookup and one batched
+    // signing call, rather than a round trip per compliment.
+    const ids = [...new Set(list.map((c) => c.moment_id).filter(Boolean))] as string[]
+    if (ids.length === 0) return setThumbs({})
+
+    const { data: photos } = await supabase
+      .from('moments')
+      .select('id, storage_path, caption')
+      .in('id', ids)
+
+    const found = (photos as { id: string; storage_path: string; caption: string | null }[]) ?? []
+    const signed = await signedUrls(found.map((m) => m.storage_path))
+
+    setThumbs(
+      Object.fromEntries(
+        found.map((m) => [m.id, { url: signed[m.storage_path], caption: m.caption }]),
+      ),
+    )
   }, [userId])
 
   useEffect(() => {
@@ -102,6 +132,8 @@ export default function Compliments({
       compliment_kind: kind,
       compliment_body: body,
       compliment_emoji: emoji,
+      // Said while looking at a photo, so the history can say which one.
+      about_moment: momentId,
     })
 
     setSending(null)
@@ -298,11 +330,47 @@ export default function Compliments({
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-xl">{c.emoji}</span>
+                    {/* The picture it was said about, when there was one — a
+                        compliment without its subject is a sentence about
+                        nothing an hour later. */}
+                    {c.moment_id ? (
+                      thumbs[c.moment_id]?.url ? (
+                        <img
+                          src={thumbs[c.moment_id].url}
+                          alt={thumbs[c.moment_id].caption ?? ''}
+                          loading="lazy"
+                          className="size-11 shrink-0 rounded-xl object-cover ring-1 ring-rose-700/50"
+                        />
+                      ) : (
+                        // The photo has since expired or been deleted. The
+                        // words outlive it; say so rather than showing nothing.
+                        <span
+                          title="That photo is gone now"
+                          className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-950/60 text-sm ring-1 ring-rose-700/40"
+                        >
+                          🖼️
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xl">{c.emoji}</span>
+                    )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-rose-100">{c.body}</p>
+                      <p className="text-sm text-rose-100">
+                        {c.moment_id && <span className="mr-1.5">{c.emoji}</span>}
+                        {c.body}
+                      </p>
                       <p className="mt-1 text-xs text-rose-400">
                         {mine ? 'You said this' : `${partnerName} said this`} · {ago(c.created_at)}
+                        {c.moment_id && (
+                          <>
+                            {' · '}
+                            <span className="text-rose-300">
+                              {thumbs[c.moment_id]?.url
+                                ? `on ${thumbs[c.moment_id].caption ? `“${thumbs[c.moment_id].caption}”` : 'a photo'}`
+                                : 'on a photo that’s gone now'}
+                            </span>
+                          </>
+                        )}
                       </p>
                       {!mine && (
                         <div className="mt-2">

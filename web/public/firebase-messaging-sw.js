@@ -72,13 +72,18 @@ self.addEventListener('notificationclick', (event) => {
   const data = event.notification.data?.FCM_MSG?.data ?? event.notification.data ?? {}
   const type = data.type
 
+  // Mirrors pathFor() in supabase/functions/send-push. Half the types were
+  // missing here, so with APP_URL unset a tapped message or reply opened Today
+  // and left you to find the thing yourself.
   const path =
-    type === 'vault' ? '/vault'
+    type === 'vault' || type === 'surprise' ? '/vault'
     : type === 'note' ? '/notes'
+    : type === 'reply' ? (data.kind === 'vault' ? '/vault' : '/notes')
+    : type === 'message' ? '/chat'
     : type === 'nudge' ? '/nudges'
-    : type === 'date' ? '/timeline'
+    : type === 'date' || type === 'memory' ? '/timeline'
     : type === 'moment' ? '/moments'
-    : '/'
+    : '/' // answer, mood, joined, reaction, compliment, milestone, photo, reveal, test
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

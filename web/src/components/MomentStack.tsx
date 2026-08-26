@@ -16,6 +16,9 @@ type Moment = {
   created_at: string
 }
 
+/** How long each photo holds before the stack moves on by itself. */
+const HOLD = 6000
+
 /** "Disappears in 6h" — only worth saying while it's still true. */
 function expiresIn(iso: string | null): string | null {
   if (!iso) return null
@@ -45,6 +48,9 @@ export default function MomentStack() {
   const [fullscreen, setFullscreen] = useState<Moment | null>(null)
   const [complimenting, setComplimenting] = useState<'send' | 'history' | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(true)
+  const [onScreen, setOnScreen] = useState(false)
+  const stackRef = useRef<HTMLDivElement>(null)
 
   // drag state
   const [dx, setDx] = useState(0)
@@ -85,6 +91,60 @@ export default function MomentStack() {
   }, [load])
 
   /**
+   * Only count down while the stack is actually being looked at.
+   *
+   * This lives on Today as well as Moments, where it is one section among
+   * several — without this it would be advancing off screen while you answered
+   * the daily question, and you would come back to a stack that had walked
+   * itself to the end in private.
+   */
+  useEffect(() => {
+    const node = stackRef.current
+    if (!node) return
+
+    const watcher = new IntersectionObserver(
+      ([entry]) => setOnScreen(entry.isIntersecting),
+      // Most of it has to be in view, not a sliver at the edge.
+      { threshold: 0.55 },
+    )
+    watcher.observe(node)
+
+    return () => watcher.disconnect()
+  }, [loading])
+
+  /**
+   * The stack playing itself.
+   *
+   * Deliberately not a carousel: it goes forward once and stops at the last
+   * photo rather than looping, because a picture sliding past every few
+   * seconds forever is restless in an app whose whole tone is the opposite of
+   * that. Swiping by hand still wraps — that is you asking for it.
+   *
+   * It also gives way to everything: a drag, an open photo, the compliment
+   * sheet, a backgrounded tab, and anyone who has asked the system for less
+   * motion. Once you take over it does not start again.
+   */
+  useEffect(() => {
+    if (!playing || !onScreen) return
+    if (moments.length < 2) return
+    if (dragging || flying) return
+    if (fullscreen || complimenting !== null) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    // The last one is where it rests, not where it wraps.
+    if (index >= moments.length - 1) return
+
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') return
+      goto(index + 1, -1)
+    }, HOLD)
+
+    return () => window.clearTimeout(timer)
+    // goto closes over `index` and `moments`, both of which are already here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, onScreen, index, moments.length, dragging, flying, fullscreen, complimenting])
+
+  /**
    * Throw the card off screen, then swap.
    *
    * It used to snap straight back to centre and change the photo underneath,
@@ -116,6 +176,9 @@ export default function MomentStack() {
 
   function onPointerDown(e: React.PointerEvent) {
     if (flying) return
+    // Touching the stack ends the show. Nobody wants a photo taken away
+    // mid-sentence because a timer was counting underneath them.
+    setPlaying(false)
     // A drag that starts on a control belongs to that control. Without this,
     // selecting text in the reply box or holding a reaction dragged the whole
     // card sideways underneath you.
@@ -195,7 +258,7 @@ export default function MomentStack() {
   const expiry = expiresIn(current.expires_at)
 
   return (
-    <div className="space-y-3">
+    <div ref={stackRef} className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-xs font-bold tracking-wider text-rose-300 uppercase">
           📸 Moments
@@ -362,23 +425,46 @@ export default function MomentStack() {
       {/* dots */}
       {moments.length > 1 && (
         <div className="flex justify-center gap-1.5">
-          {moments.slice(0, 10).map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => goto(i, i > index ? -1 : 1)}
-              aria-label={`Moment ${i + 1}`}
-              className={cx(
-                'h-1.5 rounded-full transition-all',
-                i === index ? 'w-5 bg-pink-400' : 'w-1.5 bg-rose-700',
-              )}
-            />
-          ))}
+          {moments.slice(0, 10).map((m, i) => {
+            const here = i === index
+            // Only the one currently counting down draws a bar. Without it the
+            // stack moving on by itself looks like the app doing something you
+            // did not ask for.
+            const counting = here && playing && onScreen && index < moments.length - 1
+
+            return (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setPlaying(false)
+                  goto(i, i > index ? -1 : 1)
+                }}
+                aria-label={`Moment ${i + 1}`}
+                className={cx(
+                  'relative h-1.5 overflow-hidden rounded-full transition-all',
+                  here ? 'w-5 bg-rose-700' : 'w-1.5 bg-rose-700',
+                )}
+              >
+                {here && !counting && (
+                  <span className="absolute inset-0 rounded-full bg-pink-400" />
+                )}
+                {counting && (
+                  <span
+                    key={index}
+                    className="animate-dot-fill absolute inset-0 origin-left rounded-full bg-pink-400"
+                    style={{ animationDuration: `${HOLD}ms` }}
+                  />
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
 
       <Compliments
         open={complimenting !== null}
         view={complimenting ?? 'send'}
+        momentId={current.id}
         onClose={() => setComplimenting(null)}
         hideTrigger
       />

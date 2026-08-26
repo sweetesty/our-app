@@ -68,6 +68,8 @@
 
   --animate-typing-bounce: typing-bounce 1.25s ease-in-out infinite;
   --animate-card-settle: card-settle 0.34s cubic-bezier(0.2, 0.9, 0.25, 1);
+  /* Duration is set on the element — it has to match the advance interval. */
+  --animate-dot-fill: dot-fill linear forwards;
 }
 
 @keyframes rise {
@@ -176,6 +178,12 @@
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
+/* How long this photo has left before the stack moves on. */
+@keyframes dot-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
 /* Three dots, while the other person is writing. */
 @keyframes typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -195,13 +203,20 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    scrollbar-color: rgb(159 18 57 / 0.6) transparent;
+    scrollbar-color: color-mix(in oklab, var(--color-line) 60%, transparent) transparent;
     /* The canvas the browser paints outside the page: behind an overscroll
        bounce, and behind the sheet during a swipe-back gesture. Left alone it
        is white, which flashed a bright strip down the edge of the screen mid
        swipe. Both of these keep that area the colour of the app. */
     color-scheme: dark;
     background-color: var(--bg-a);
+    /* Nothing may make the page wider than the phone.
+       A moment card thrown off screen is translated a full viewport width, and
+       a chat bubble dragged to reply moves sideways too — both of which grew
+       the document and left the browser showing a zoomed-out page with a strip
+       of nothing down the side. `clip` rather than `hidden`: hidden would turn
+       these into scroll containers and break the sticky header and composer. */
+    overflow-x: clip;
   }
 
   body {
@@ -217,6 +232,19 @@
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+
+  /* A long word, a pasted link or an unbroken run of emoji can push a card
+     wider than the screen on its own. Nothing in a two-person app is worth a
+     horizontal scrollbar. */
+  p, h1, h2, h3, span, li {
+    overflow-wrap: anywhere;
+  }
+
+  img, video, canvas, svg {
+    max-width: 100%;
   }
 
   #root {
@@ -228,19 +256,19 @@
   h1, h2, h3 { font-weight: 700; }
 
   ::selection {
-    background: #f43f5e;
+    background: var(--color-rose-500);
     color: #ffffff;
   }
 
   :focus-visible {
-    outline: 2px solid #ec4899;
+    outline: 2px solid var(--color-lav-400);
     outline-offset: 2px;
     border-radius: 6px;
   }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb {
-    background: rgb(159 18 57 / 0.5);
+    background: color-mix(in oklab, var(--color-line) 50%, transparent);
     border-radius: 99px;
   }
 }
@@ -249,6 +277,11 @@
    components
    --------------------------------------------------------------------------- */
 
+/* Every colour below goes through the palette rather than a rose hex. These
+   are the shared surfaces — the header, the panels, the notification toast —
+   so a couple on Violet was getting a maroon notification over a purple app.
+   One hard-coded value here shows up on fifteen screens. */
+
 @layer components {
   .glass {
     background: rgb(255 255 255 / 0.85);
@@ -256,15 +289,15 @@
   }
 
   .dark-glass {
-    background: rgb(26 11 15 / 0.75);
+    background: color-mix(in oklab, var(--color-canvas) 78%, transparent);
     backdrop-filter: blur(12px);
   }
 
   /* The prototype's standard panel. */
   .surface {
     position: relative;
-    background: rgb(136 19 55 / 0.3);
-    border: 1px solid rgb(159 18 57 / 0.4);
+    background: color-mix(in oklab, var(--color-rose-900) 30%, transparent);
+    border: 1px solid color-mix(in oklab, var(--color-line) 40%, transparent);
     border-radius: 1.5rem;
     box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.8);
   }
@@ -273,13 +306,17 @@
   .paper {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(to bottom right, rgb(136 19 55 / 0.6), rgb(76 5 25 / 0.85));
-    border: 1px solid rgb(159 18 57 / 0.45);
+    background: linear-gradient(
+      to bottom right,
+      color-mix(in oklab, var(--color-rose-900) 62%, transparent),
+      color-mix(in oklab, var(--color-rose-950) 88%, transparent)
+    );
+    border: 1px solid color-mix(in oklab, var(--color-line) 45%, transparent);
     border-radius: 1.5rem;
     box-shadow: 0 22px 45px -25px rgb(0 0 0 / 0.9);
   }
 
-  /* Soft pink bloom in the corner of a lead card, straight from the mockup. */
+  /* Soft bloom in the corner of a lead card, straight from the mockup. */
   .paper::after {
     content: '';
     position: absolute;
@@ -288,7 +325,7 @@
     width: 8rem;
     height: 8rem;
     border-radius: 999px;
-    background: rgb(236 72 153 / 0.12);
+    background: color-mix(in oklab, var(--color-lav-400) 14%, transparent);
     filter: blur(32px);
     pointer-events: none;
   }
@@ -305,12 +342,12 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #fda4af;
+    color: var(--color-ink-muted);
   }
 
   .script { font-style: italic; }
 
-  .hairline { border-color: rgb(159 18 57 / 0.4); }
+  .hairline { border-color: color-mix(in oklab, var(--color-line) 40%, transparent); }
 
   /* Scrapbook leftovers, neutralised. Screens still reference these; they now
      resolve to nothing rather than throwing off the rose layout. */
@@ -320,8 +357,8 @@
 
   .polaroid {
     position: relative;
-    background: rgb(76 5 25 / 0.6);
-    border: 1px solid rgb(159 18 57 / 0.5);
+    background: color-mix(in oklab, var(--color-rose-950) 60%, transparent);
+    border: 1px solid color-mix(in oklab, var(--color-line) 50%, transparent);
     padding: 0.4rem 0.4rem 1.6rem;
     border-radius: 0.75rem;
   }
@@ -329,7 +366,7 @@
   .polaroid img { display: block; width: 100%; border-radius: 0.35rem; }
 
   .stamp {
-    border: 1px solid rgb(236 72 153 / 0.35);
+    border: 1px solid color-mix(in oklab, var(--color-lav-400) 35%, transparent);
     border-radius: 999px;
   }
 

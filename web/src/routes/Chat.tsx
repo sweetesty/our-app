@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { signedUrls, uploadMedia, mediaTypeOf } from '../lib/media'
@@ -6,6 +13,164 @@ import { cx, ErrorNote, Loading } from '../components/ui'
 import Reactions, { type ReactionRow } from '../components/Reactions'
 import VoiceRecorder from '../components/VoiceRecorder'
 import type { Message } from '../lib/types'
+
+/**
+ * Composer icons.
+ *
+ * Drawn rather than typed. An emoji is a font glyph: 📷 and 🎙️ rendered as a
+ * beige point-and-shoot and a grey studio mic on Android, sitting in a row of
+ * pink controls and matching none of them. These inherit currentColor, so they
+ * belong to whichever palette is on.
+ */
+function CameraIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 8.5h2.6l1.3-2.2a1 1 0 0 1 .86-.5h6.48a1 1 0 0 1 .86.5L17.4 8.5H20a1.5 1.5 0 0 1 1.5 1.5v7.5A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5V10A1.5 1.5 0 0 1 4 8.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13.4" r="3.3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+function MicIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="9"
+        y="2.75"
+        width="6"
+        height="11"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M5.5 11.2a6.5 6.5 0 0 0 13 0M12 17.7V21.2M8.75 21.25h6.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Drag a bubble sideways to answer it.
+ *
+ * Pointer events rather than a gesture library, the same as the moment stack:
+ * this is a drag, a threshold and a spring back, and a dependency for that
+ * would cost more than it saves.
+ *
+ * The fiddly part is telling a reply from a scroll. A thread is a vertical
+ * list, so any ambiguity has to resolve as scrolling — the gesture only claims
+ * the pointer once it has clearly gone sideways, and gives up for good the
+ * moment it goes down.
+ */
+function SwipeToReply({
+  onReply,
+  children,
+}: {
+  onReply: () => void
+  children: ReactNode
+}) {
+  const [dx, setDx] = useState(0)
+  const [claimed, setClaimed] = useState(false)
+  const start = useRef({ x: 0, y: 0 })
+  const tracking = useRef(false)
+  // A committed drag ends in a click on the bubble underneath. This swallows it
+  // so answering a message does not also open its menu.
+  const swallowClick = useRef(false)
+
+  const PULL = 72
+  const ENOUGH = 48
+
+  function down(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest('audio, video, a')) return
+    start.current = { x: e.clientX, y: e.clientY }
+    tracking.current = true
+  }
+
+  function move(e: React.PointerEvent) {
+    if (!tracking.current) return
+
+    const raw = e.clientX - start.current.x
+    const drop = Math.abs(e.clientY - start.current.y)
+
+    if (!claimed) {
+      // Going down the thread — hands off, permanently for this touch.
+      if (drop > 10 && drop > Math.abs(raw)) {
+        tracking.current = false
+        return
+      }
+      if (raw < 10) return
+      setClaimed(true)
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    }
+
+    // One direction only, and heavier past the pull so it has an end.
+    const d = Math.max(0, raw)
+    setDx(d > PULL ? PULL + (d - PULL) * 0.16 : d)
+  }
+
+  function up() {
+    if (!tracking.current) return
+    tracking.current = false
+
+    if (dx >= ENOUGH) {
+      try {
+        navigator.vibrate?.(14)
+      } catch {
+        // Not every phone offers one, and it is never worth an error.
+      }
+      onReply()
+    }
+
+    swallowClick.current = dx > 6
+    setClaimed(false)
+    setDx(0)
+  }
+
+  return (
+    <div
+      className="relative"
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+      onClickCapture={(e) => {
+        if (!swallowClick.current) return
+        swallowClick.current = false
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 grid place-items-center text-rose-300"
+        style={{
+          opacity: Math.min(1, dx / ENOUGH),
+          transform: `translateX(${Math.min(dx, PULL) - 30}px) scale(${
+            0.7 + Math.min(dx, ENOUGH) / ENOUGH / 3
+          })`,
+        }}
+      >
+        ↩
+      </span>
+
+      <div
+        className={claimed ? undefined : 'transition-transform duration-300 ease-out'}
+        style={{ transform: `translateX(${dx}px)` }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
 
 /** Day separators, so a long thread does not become one undifferentiated wall. */
 function dayLabel(iso: string): string {
@@ -312,7 +477,7 @@ export default function Chat() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {pinned.length > 0 && (
-        <div className="dark-glass sticky top-0 z-10 -mx-6 mb-2 border-b border-rose-800/40 px-6 py-2">
+        <div className="dark-glass sticky top-0 z-10 -mx-4 mb-2 border-b border-rose-800/40 px-4 py-2 sm:-mx-6 sm:px-6">
           <button
             onClick={() => setShowPins((v) => !v)}
             className="flex w-full items-center gap-2 text-left text-xs text-rose-300"
@@ -385,6 +550,13 @@ export default function Chat() {
                     />
                   )}
 
+                  <SwipeToReply
+                    onReply={() => {
+                      setReplyTo(message)
+                      setMenuFor(null)
+                      inputRef.current?.focus()
+                    }}
+                  >
                   <button
                     onClick={() => setMenuFor(open ? null : message.id)}
                     className={cx(
@@ -457,6 +629,7 @@ export default function Chat() {
                       </span>
                     )}
                   </button>
+                  </SwipeToReply>
 
                   {/* existing reactions sit under the bubble */}
                   {(reactions[message.id]?.length ?? 0) > 0 && (
@@ -535,9 +708,12 @@ export default function Chat() {
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {/* Sticks to the bottom, and clears the home indicator on an installed
-          PWA where the page runs under it. */}
+          PWA where the page runs under it. The negative margin breaks it out
+          of the page padding to sit edge to edge, so it has to track that
+          padding — main is tighter on a phone than on a desktop, and a
+          mismatch here pushed the composer wider than the screen. */}
       <div
-        className="dark-glass sticky bottom-0 -mx-6 border-t border-rose-800/40 px-6 pt-3"
+        className="dark-glass sticky bottom-0 -mx-4 border-t border-rose-800/40 px-4 pt-3 sm:-mx-6 sm:px-6"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         {replyTo && (
@@ -585,16 +761,16 @@ export default function Chat() {
             <button
               onClick={() => fileRef.current?.click()}
               aria-label="Send a photo or video"
-              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-base text-rose-200 transition active:scale-95"
+              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-rose-200 transition hover:bg-rose-800/70 hover:text-white active:scale-95"
             >
-              📷
+              <CameraIcon />
             </button>
             <button
               onClick={() => setRecording(true)}
               aria-label="Record a voice message"
-              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-base text-rose-200 transition active:scale-95"
+              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-rose-200 transition hover:bg-rose-800/70 hover:text-white active:scale-95"
             >
-              🎙️
+              <MicIcon />
             </button>
 
             <textarea
