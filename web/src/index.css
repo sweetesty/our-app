@@ -454,3 +454,32 @@
     font-size: 16px !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Inside the app, the document does not scroll. Only the content pane does.
+   ---------------------------------------------------------------------------
+   AppShell sizes itself to the visible viewport so the composer sits above the
+   keyboard rather than behind it. But body and #root carry min-height: 100dvh,
+   and dvh does not shrink for a keyboard — so the shell got shorter while the
+   document stayed full height, leaving a scrollable page behind it. Scrolling
+   that page is what carried the composer up the screen: it was never the
+   composer moving, it was everything under it.
+
+   The class is added by AppShell and removed when it unmounts, so the landing
+   and sign-in pages — which are ordinary long pages and should scroll — are
+   untouched.
+   --------------------------------------------------------------------------- */
+html.app-shell,
+html.app-shell body {
+  height: var(--app-height, 100dvh);
+  min-height: 0;
+  overflow: hidden;
+  /* Nothing to rubber-band, so iOS stops trying. */
+  overscroll-behavior: none;
+}
+
+html.app-shell #root {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}

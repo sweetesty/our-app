@@ -46,6 +46,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
    * scrollTo undoes the shove iOS gives the page on the way in; without it the
    * header goes up under the status bar and stays there.
    */
+  // Hand the document over to the shell while it is mounted: no page scroll,
+  // exactly viewport height. Removed on unmount so the landing and sign-in
+  // pages stay ordinary scrolling pages.
+  useEffect(() => {
+    document.documentElement.classList.add('app-shell')
+    return () => document.documentElement.classList.remove('app-shell')
+  }, [])
+
   useEffect(() => {
     const view = window.visualViewport
     if (!view) return
