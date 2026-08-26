@@ -125,14 +125,28 @@ export default function InAppAlerts() {
         })
       })
       .on('postgres_changes', { ...scope, table: 'messages' }, ({ new: row }) => {
-        const message = row as { id: string; author_id: string; body: string }
+        const message = row as {
+          id: string
+          author_id: string
+          body: string | null
+          media_type: string | null
+        }
         if (message.author_id === userId) return
         if (pathRef.current === '/chat') return
         push({
           id: message.id,
           emoji: '💬',
           line: `${nameRef.current} says…`,
-          detail: message.body,
+          // A message can be an attachment with no words at all.
+          detail:
+            message.body ??
+            (message.media_type === 'photo'
+              ? '📷 Photo'
+              : message.media_type === 'voice'
+                ? '🎙️ Voice note'
+                : message.media_type === 'video'
+                  ? '🎥 Video'
+                  : null),
           path: '/chat',
         })
       })

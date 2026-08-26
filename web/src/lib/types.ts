@@ -131,9 +131,15 @@ export type Message = {
   id: string
   couple_id: string
   author_id: string
-  body: string
+  /** Null when the message is only an attachment. */
+  body: string | null
   /** Set when this was sent as a reply to a photo. */
   moment_id: string | null
+  media_path: string | null
+  media_type: MediaType | null
+  /** The message this one quotes. */
+  reply_to: string | null
+  is_pinned: boolean
   read_at: string | null
   created_at: string
 }

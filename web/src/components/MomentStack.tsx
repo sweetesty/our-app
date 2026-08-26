@@ -395,6 +395,9 @@ function ReplyBox({ momentId, partnerName }: { momentId: string; partnerName: st
     const { error } = await supabase.rpc('send_message', {
       message_body: body,
       about_moment: momentId,
+      attachment_path: null,
+      attachment_type: null,
+      replying_to: null,
     })
     setSending(false)
     if (error) return

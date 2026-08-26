@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
-import { signedUrls } from '../lib/media'
+import { signedUrls, uploadMedia, mediaTypeOf } from '../lib/media'
 import { cx, ErrorNote, Loading } from '../components/ui'
+import Reactions, { type ReactionRow } from '../components/Reactions'
+import VoiceRecorder from '../components/VoiceRecorder'
 import type { Message } from '../lib/types'
 
 /** Day separators, so a long thread does not become one undifferentiated wall. */
@@ -23,25 +25,42 @@ function clockTime(iso: string): string {
 }
 
 /**
- * Chat.
+ * A message that is only emoji, sent as a sticker would be.
  *
- * The only replies in the app used to be an emoji or a preset compliment — you
- * could caption a photo and they could not write back. This is that missing
- * half.
- *
- * A message can carry a moment_id, which is what a reply under a photo becomes.
- * It stays one thread rather than a second per-photo comment system, so the
- * picture keeps flowing moment -> memory -> album untouched.
+ * This is deliberately where the sticker feature ended up. Every GIF picker is
+ * a third-party API — Giphy, Tenor — which would mean sending what the two of
+ * you are talking about to a stranger's server on every keystroke. For an app
+ * whose whole premise is that nobody else is watching, that is the wrong
+ * trade. Big emoji costs nothing and leaks nothing.
  */
+function isSticker(body: string | null): boolean {
+  if (!body) return false
+  const stripped = body.replace(/\s/g, '')
+  if (stripped.length === 0) return false
+  // Emoji, variation selectors and zero-width joiners only, and not many.
+  if (!/^(\p{Extended_Pictographic}|️|‍|\p{Emoji_Modifier})+$/u.test(stripped)) {
+    return false
+  }
+  return [...stripped.matchAll(/\p{Extended_Pictographic}/gu)].length <= 3
+}
+
 export default function Chat() {
-  const { userId, summary, refresh } = useSession()
+  const { coupleId, userId, summary, refresh } = useSession()
   const [messages, setMessages] = useState<Message[]>([])
-  const [thumbs, setThumbs] = useState<Record<string, string>>({})
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  const [reactions, setReactions] = useState<Record<string, ReactionRow[]>>({})
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [voice, setVoice] = useState<File | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [showPins, setShowPins] = useState(false)
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+
   const endRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   // Uncontrolled: a controlled field re-rendered the whole thread on every
   // letter, which on iOS dropped focus and shut the keyboard mid-word.
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -49,11 +68,10 @@ export default function Chat() {
   const partnerName = summary?.partner?.display_name ?? 'them'
 
   const load = useCallback(async () => {
-    const { data, error: qErr } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: true })
-      .limit(500)
+    const [{ data, error: qErr }, { data: reacts }] = await Promise.all([
+      supabase.from('messages').select('*').order('created_at', { ascending: true }).limit(500),
+      supabase.from('reactions').select('target_id, emoji, user_id').eq('target_kind', 'message'),
+    ])
 
     if (qErr) {
       setError(errorMessage(qErr))
@@ -65,60 +83,66 @@ export default function Chat() {
     setMessages(list)
     setLoading(false)
 
-    // Photos for any replies that hang off a moment, so a reply reads with the
-    // thing it is about rather than floating free.
+    const grouped: Record<string, ReactionRow[]> = {}
+    for (const r of (reacts as { target_id: string; emoji: string; user_id: string }[]) ?? []) {
+      ;(grouped[r.target_id] ??= []).push({ emoji: r.emoji, mine: r.user_id === userId })
+    }
+    setReactions(grouped)
+
+    // Attachments, plus the photos of any replies that hang off a moment.
+    const paths = list.map((m) => m.media_path).filter(Boolean) as string[]
     const momentIds = [...new Set(list.map((m) => m.moment_id).filter(Boolean))] as string[]
+    const momentPaths: Record<string, string> = {}
+
     if (momentIds.length > 0) {
       const { data: moments } = await supabase
         .from('moments')
         .select('id, storage_path')
         .in('id', momentIds)
-
-      const rows = (moments as { id: string; storage_path: string }[]) ?? []
-      const signed = await signedUrls(rows.map((r) => r.storage_path))
-      setThumbs(Object.fromEntries(rows.map((r) => [r.id, signed[r.storage_path]])))
+      for (const r of (moments as { id: string; storage_path: string }[]) ?? []) {
+        momentPaths[r.id] = r.storage_path
+        paths.push(r.storage_path)
+      }
     }
+
+    const signed = await signedUrls(paths)
+    // Keyed by both storage path and moment id, so either lookup works.
+    setUrls({
+      ...signed,
+      ...Object.fromEntries(Object.entries(momentPaths).map(([id, p]) => [id, signed[p]])),
+    })
 
     await supabase.rpc('mark_messages_read')
     await refresh()
-  }, [refresh])
+  }, [refresh, userId])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  // Live thread. Appending the row straight from the payload rather than
-  // refetching keeps their message landing the instant they send it.
   useEffect(() => {
+    if (!coupleId) return
     const channel = supabase
       .channel('chat')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        ({ new: row }) => {
-          const incoming = row as Message
-          setMessages((current) =>
-            current.some((m) => m.id === incoming.id) ? current : [...current, incoming],
-          )
-          if (incoming.author_id !== userId) {
-            void supabase.rpc('mark_messages_read')
-          }
-        },
+        { event: '*', schema: 'public', table: 'messages' },
+        // Reload rather than patching in place: a message can arrive, be
+        // pinned, be reacted to or be deleted, and reconciling four kinds of
+        // change by hand is more code than one query.
+        () => void load(),
       )
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages' },
-        ({ old: row }) => {
-          const gone = row as { id: string }
-          setMessages((current) => current.filter((m) => m.id !== gone.id))
-        },
+        { event: '*', schema: 'public', table: 'reactions' },
+        () => void load(),
       )
       .subscribe()
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [coupleId, load])
 
   // useLayoutEffect, not useEffect: scrolling after paint makes the thread
   // visibly jump from the top on open.
@@ -126,51 +150,107 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [messages.length])
 
-  async function send() {
-    const body = inputRef.current?.value.trim()
-    if (!body || sending) return
+  async function send(attachment?: File) {
+    const body = inputRef.current?.value.trim() ?? ''
+    const file = attachment ?? voice
+    if (!body && !file) return
+    if (sending || !coupleId) return
 
     setSending(true)
     setError('')
+
     // Clear immediately. Waiting for the round trip made the field feel stuck
     // on a slow connection, and people retype into it.
     if (inputRef.current) {
       inputRef.current.value = ''
       inputRef.current.style.height = 'auto'
     }
+    const quoted = replyTo?.id ?? null
+    setReplyTo(null)
+    setVoice(null)
+    setRecording(false)
 
-    const { error: rpcError } = await supabase.rpc('send_message', {
-      message_body: body,
-      about_moment: null,
-    })
+    try {
+      let path: string | null = null
+      let kind: string | null = null
+      if (file) {
+        path = (await uploadMedia(coupleId, 'chat', file)).path
+        kind = mediaTypeOf(file)
+      }
 
-    setSending(false)
-    if (rpcError) {
-      setError(errorMessage(rpcError))
+      const { error: rpcError } = await supabase.rpc('send_message', {
+        message_body: body || null,
+        about_moment: null,
+        attachment_path: path,
+        attachment_type: kind,
+        replying_to: quoted,
+      })
+      if (rpcError) throw rpcError
+    } catch (err) {
+      setError(errorMessage(err))
       // Give them their words back rather than losing them to an error.
-      if (inputRef.current) inputRef.current.value = body
+      if (inputRef.current && body) inputRef.current.value = body
+    } finally {
+      setSending(false)
     }
   }
 
   async function remove(id: string) {
+    setMenuFor(null)
     setMessages((current) => current.filter((m) => m.id !== id))
     await supabase.from('messages').delete().eq('id', id)
   }
 
+  async function togglePin(id: string) {
+    setMenuFor(null)
+    await supabase.rpc('toggle_message_pin', { message_id: id })
+    await load()
+  }
+
   if (loading) return <Loading label="Opening…" />
 
+  const pinned = messages.filter((m) => m.is_pinned)
+  const byId = new Map(messages.map((m) => [m.id, m]))
+
   return (
-    // flex-1 with min-h-0 rather than h-full: the parent is a flex column, so
-    // h-full resolves against nothing and the composer floats mid-page.
     <div className="flex min-h-0 flex-1 flex-col">
+      {pinned.length > 0 && (
+        <div className="dark-glass sticky top-0 z-10 -mx-6 mb-2 border-b border-rose-800/40 px-6 py-2">
+          <button
+            onClick={() => setShowPins((v) => !v)}
+            className="flex w-full items-center gap-2 text-left text-xs text-rose-300"
+          >
+            <span>📌</span>
+            <span className="min-w-0 flex-1 truncate">
+              {showPins ? 'Pinned' : (pinned[pinned.length - 1].body ?? 'An attachment')}
+            </span>
+            <span className="shrink-0 text-rose-500">{pinned.length}</span>
+          </button>
+
+          {showPins && (
+            <ul className="mt-2 space-y-1.5">
+              {pinned.map((m) => (
+                <li key={m.id} className="flex items-start gap-2 text-xs text-rose-200">
+                  <span className="min-w-0 flex-1 truncate">{m.body ?? 'An attachment'}</span>
+                  <button
+                    onClick={() => void togglePin(m.id)}
+                    className="shrink-0 text-rose-500 hover:text-rose-300"
+                  >
+                    Unpin
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 space-y-1 pb-4">
         {messages.length === 0 && (
           <div className="surface mt-8 p-8 text-center">
             <p className="text-3xl">💬</p>
             <p className="mt-3 text-sm text-ink">Nothing here yet.</p>
-            <p className="mt-1 text-xs text-ink-faint">
-              Say the first thing to {partnerName}.
-            </p>
+            <p className="mt-1 text-xs text-ink-faint">Say the first thing to {partnerName}.</p>
           </div>
         )}
 
@@ -179,9 +259,12 @@ export default function Chat() {
           const previous = messages[i - 1]
           const newDay =
             !previous || dayLabel(previous.created_at) !== dayLabel(message.created_at)
-          // Only label the sender when the run changes hands — a name on every
+          // Only start a new group when the run changes hands — a name on every
           // line makes a two-person thread look like a crowd.
           const startsRun = !previous || previous.author_id !== message.author_id
+          const quoted = message.reply_to ? byId.get(message.reply_to) : null
+          const sticker = isSticker(message.body) && !message.media_path
+          const open = menuFor === message.id
 
           return (
             <div key={message.id}>
@@ -192,10 +275,11 @@ export default function Chat() {
               )}
 
               <div className={cx('flex', mine ? 'justify-end' : 'justify-start')}>
-                <div className={cx('max-w-[80%]', startsRun && 'mt-2')}>
-                  {message.moment_id && thumbs[message.moment_id] && (
+                <div className={cx('max-w-[80%] min-w-0', startsRun && 'mt-2')}>
+                  {/* a reply under a photo carries the photo */}
+                  {message.moment_id && urls[message.moment_id] && (
                     <img
-                      src={thumbs[message.moment_id]}
+                      src={urls[message.moment_id]}
                       alt=""
                       className={cx(
                         'mb-1 h-24 w-24 rounded-2xl object-cover opacity-80',
@@ -204,38 +288,129 @@ export default function Chat() {
                     />
                   )}
 
-                  <div
+                  <button
+                    onClick={() => setMenuFor(open ? null : message.id)}
                     className={cx(
-                      'group rounded-3xl px-4 py-2.5',
-                      mine
-                        ? 'bg-gradient-to-br from-pink-600 to-rose-600 text-white'
-                        : 'bg-rose-900/50 text-rose-50',
+                      'block w-full rounded-3xl text-left transition',
+                      sticker
+                        ? 'px-1 py-0.5'
+                        : mine
+                          ? 'bg-gradient-to-br from-pink-600 to-rose-600 px-4 py-2.5 text-white'
+                          : 'bg-rose-900/50 px-4 py-2.5 text-rose-50',
                     )}
                   >
-                    <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-                      {message.body}
-                    </p>
-                    <div className="mt-1 flex items-center justify-end gap-2">
+                    {quoted && (
                       <span
                         className={cx(
-                          'text-[0.6rem]',
-                          mine ? 'text-pink-100/70' : 'text-rose-400',
+                          'mb-1.5 block border-l-2 pl-2 text-xs',
+                          mine ? 'border-pink-200/60 text-pink-100/80' : 'border-rose-600 text-rose-300',
                         )}
                       >
-                        {clockTime(message.created_at)}
-                        {mine && message.read_at && ' · read'}
+                        <span className="block truncate">
+                          {quoted.body ?? 'An attachment'}
+                        </span>
                       </span>
+                    )}
+
+                    {message.media_path && urls[message.media_path] && (
+                      <span className="mb-1.5 block">
+                        {message.media_type === 'photo' && (
+                          <img
+                            src={urls[message.media_path]}
+                            alt=""
+                            className="max-h-72 w-full rounded-2xl object-cover"
+                          />
+                        )}
+                        {message.media_type === 'video' && (
+                          <video
+                            src={urls[message.media_path]}
+                            controls
+                            className="max-h-72 w-full rounded-2xl"
+                          />
+                        )}
+                        {message.media_type === 'voice' && (
+                          <audio src={urls[message.media_path]} controls className="w-56 max-w-full" />
+                        )}
+                      </span>
+                    )}
+
+                    {message.body && (
+                      <span
+                        className={cx(
+                          'block break-words whitespace-pre-wrap',
+                          sticker ? 'text-5xl leading-tight' : 'text-sm leading-relaxed',
+                        )}
+                      >
+                        {message.body}
+                      </span>
+                    )}
+
+                    {!sticker && (
+                      <span className="mt-1 flex items-center justify-end gap-1.5">
+                        {message.is_pinned && <span className="text-[0.6rem]">📌</span>}
+                        <span
+                          className={cx(
+                            'text-[0.6rem]',
+                            mine ? 'text-pink-100/70' : 'text-rose-400',
+                          )}
+                        >
+                          {clockTime(message.created_at)}
+                          {mine && message.read_at && ' · read'}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+
+                  {/* existing reactions sit under the bubble */}
+                  {(reactions[message.id]?.length ?? 0) > 0 && (
+                    <div className={cx('mt-0.5 flex', mine && 'justify-end')}>
+                      <Reactions
+                        targetKind="message"
+                        targetId={message.id}
+                        reactions={reactions[message.id] ?? []}
+                        onChanged={load}
+                        compact
+                      />
+                    </div>
+                  )}
+
+                  {open && (
+                    <div
+                      className={cx(
+                        'mt-1 flex items-center gap-2 text-[0.65rem] text-rose-400',
+                        mine && 'justify-end',
+                      )}
+                    >
+                      <button
+                        onClick={() => {
+                          setReplyTo(message)
+                          setMenuFor(null)
+                          inputRef.current?.focus()
+                        }}
+                        className="hover:text-rose-200"
+                      >
+                        Reply
+                      </button>
+                      <button onClick={() => void togglePin(message.id)} className="hover:text-rose-200">
+                        {message.is_pinned ? 'Unpin' : 'Pin'}
+                      </button>
+                      <Reactions
+                        targetKind="message"
+                        targetId={message.id}
+                        reactions={reactions[message.id] ?? []}
+                        onChanged={load}
+                        compact
+                      />
                       {mine && (
                         <button
                           onClick={() => void remove(message.id)}
-                          aria-label="Delete message"
-                          className="text-[0.6rem] text-pink-100/50 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                          className="text-red-400 hover:text-red-300"
                         >
-                          ✕
+                          Delete
                         </button>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -247,42 +422,101 @@ export default function Chat() {
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      {/* Sticks to the bottom above the nav bar, and clears the home indicator
-          on an installed PWA where the page runs under it. */}
+      {/* Sticks to the bottom, and clears the home indicator on an installed
+          PWA where the page runs under it. */}
       <div
-        className="dark-glass sticky bottom-0 -mx-6 flex items-end gap-2 border-t border-rose-800/40 px-6 pt-3"
+        className="dark-glass sticky bottom-0 -mx-6 border-t border-rose-800/40 px-6 pt-3"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <textarea
-          ref={inputRef}
-          rows={1}
-          maxLength={2000}
-          placeholder={`Message ${partnerName}…`}
-          onInput={(e) => {
-            // Grow with the text, up to a point, so a long message is visible
-            // while being written without swallowing the thread.
-            const el = e.currentTarget
-            el.style.height = 'auto'
-            el.style.height = `${Math.min(el.scrollHeight, 140)}px`
-          }}
-          onKeyDown={(e) => {
-            // Enter sends on a keyboard; Shift+Enter makes a new line. On a
-            // phone the on-screen return key inserts a line as usual.
-            if (e.key === 'Enter' && !e.shiftKey && !/Mobi/i.test(navigator.userAgent)) {
-              e.preventDefault()
-              void send()
-            }
-          }}
-          className="max-h-36 flex-1 resize-none rounded-3xl border border-rose-700/40 bg-rose-950/60 px-4 py-2.5 text-sm text-rose-50 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
-        />
-        <button
-          onClick={() => void send()}
-          disabled={sending}
-          aria-label="Send"
-          className="mb-0.5 grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-pink-600 to-rose-600 text-white shadow transition active:scale-95 disabled:opacity-50"
-        >
-          ↑
-        </button>
+        {replyTo && (
+          <div className="mb-2 flex items-center gap-2 rounded-2xl bg-rose-950/60 px-3 py-2 text-xs text-rose-300">
+            <span className="shrink-0">↩</span>
+            <span className="min-w-0 flex-1 truncate">{replyTo.body ?? 'An attachment'}</span>
+            <button onClick={() => setReplyTo(null)} className="shrink-0 text-rose-500">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {recording ? (
+          <div className="mb-2">
+            <VoiceRecorder
+              onRecorded={(file) => {
+                setVoice(file)
+                if (file) void send(file)
+              }}
+              maxSeconds={180}
+            />
+            <button
+              onClick={() => {
+                setRecording(false)
+                setVoice(null)
+              }}
+              className="mt-1 w-full text-center text-xs text-rose-400"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,video/*"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void send(file)
+                e.target.value = ''
+              }}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              aria-label="Send a photo or video"
+              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-base text-rose-200 transition active:scale-95"
+            >
+              📷
+            </button>
+            <button
+              onClick={() => setRecording(true)}
+              aria-label="Record a voice message"
+              className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-rose-900/60 text-base text-rose-200 transition active:scale-95"
+            >
+              🎙️
+            </button>
+
+            <textarea
+              ref={inputRef}
+              rows={1}
+              maxLength={2000}
+              placeholder={`Message ${partnerName}…`}
+              onInput={(e) => {
+                // Grow with the text, up to a point, so a long message is
+                // visible while being written without swallowing the thread.
+                const el = e.currentTarget
+                el.style.height = 'auto'
+                el.style.height = `${Math.min(el.scrollHeight, 140)}px`
+              }}
+              onKeyDown={(e) => {
+                // Enter sends on a keyboard; Shift+Enter makes a new line. On a
+                // phone the on-screen return key inserts a line as usual.
+                if (e.key === 'Enter' && !e.shiftKey && !/Mobi/i.test(navigator.userAgent)) {
+                  e.preventDefault()
+                  void send()
+                }
+              }}
+              className="max-h-36 min-w-0 flex-1 resize-none rounded-3xl border border-rose-700/40 bg-rose-950/60 px-4 py-2.5 text-sm text-rose-50 placeholder-rose-400/50 focus:border-pink-500 focus:outline-none"
+            />
+            <button
+              onClick={() => void send()}
+              disabled={sending}
+              aria-label="Send"
+              className="mb-0.5 grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-pink-600 to-rose-600 text-white shadow transition active:scale-95 disabled:opacity-50"
+            >
+              ↑
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
