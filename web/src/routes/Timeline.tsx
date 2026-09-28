@@ -18,6 +18,8 @@ import { removeMedia, signedUrls, uploadMedia } from '../lib/media'
 import VoiceRecorder from '../components/VoiceRecorder'
 import ImportantDates from '../components/ImportantDates'
 import type { Milestone, MilestoneMedia } from '../lib/types'
+import Icon from '../components/Icon'
+import FightTracker from '../components/FightTracker'
 
 const ICONS = ['💫', '💌', '📞', '🌙', '🏡', '✈️', '🥂', '🎂', '💍', '🌊', '🎶', '☕']
 
@@ -87,7 +89,9 @@ export default function Timeline() {
           dates" rather than two things to check. */}
       <ImportantDates />
 
-      <h3 className="mb-3 text-lg font-bold text-white">🗓️ How we got here</h3>
+      <FightTracker />
+
+      <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-white"><Icon name="timeline" size={19} className="text-pink-400" />How we got here</h3>
 
       {milestones.length === 0 ? (
         <EmptyState
