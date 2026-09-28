@@ -20,6 +20,7 @@ import SealBreak, { WaxSeal } from '../components/SealBreak'
 import Replies from '../components/Replies'
 import type { VaultContents, VaultItem } from '../lib/types'
 import Emoji from '../components/Emoji'
+import NoteImage from '../components/NoteImage'
 
 const CONDITION_PRESETS = [
   'when you miss me',
@@ -225,6 +226,8 @@ function Reader({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [opening, setOpening] = useState(false)
+  /** Turning the letter into something postable. */
+  const [posting, setPosting] = useState(false)
   const [emailing, setEmailing] = useState(false)
   const [emailed, setEmailed] = useState(false)
   // The ceremony, and whether the letter behind it has actually arrived.
@@ -349,6 +352,14 @@ function Reader({
             {/* Answering the letter, kept with the letter. Only once it is
                 genuinely open — the RPC refuses on a sealed one, so this is
                 not the only thing standing in the way. */}
+            {/* A letter written months ago and finally opened is at least as
+                worth posting as a note is. Same canvas, same templates. */}
+            {contents?.body && (
+              <Button variant="ghost" size="sm" onClick={() => setPosting(true)}>
+                🖼️ Make it a picture
+              </Button>
+            )}
+
             {(!mine || item.unlocked_at) && (
               <Replies kind="vault" targetId={item.id} authorName={partnerName} />
             )}
@@ -392,6 +403,23 @@ function Reader({
         </div>
         </div>
       </Modal>
+
+      <NoteImage
+        note={
+          posting && contents?.body
+            ? {
+                id: item.id,
+                title: item.label,
+                body: contents.body,
+                // The date it was sealed, not the date it opened — that is the
+                // day it was written, and it is the more interesting of the two.
+                created_at: item.created_at,
+              }
+            : null
+        }
+        authorName={mine ? 'You' : partnerName}
+        onClose={() => setPosting(false)}
+      />
     </>
   )
 }

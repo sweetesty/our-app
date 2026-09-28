@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { signedUrl } from '../lib/media'
 import { useSession } from '../context/SessionProvider'
 import { cx, Modal } from './ui'
-import type { LoveNote } from '../lib/types'
+
 
 /**
  * A note, as a picture you can post.
@@ -12,6 +12,10 @@ import type { LoveNote } from '../lib/types'
  * blurry approximation of the screen at whatever size the phone happened to
  * be; this draws at full export resolution, so the text is sharp at 1080 wide
  * and the layout is designed for a square rather than inherited from a page.
+ *
+ * Takes a shape rather than a note, because a sealed letter finally opened is
+ * at least as worth posting as a note is, and the only difference between them
+ * is which field the words are in.
  *
  * Sharing, not downloading, is the real path. A PWA on iOS cannot reliably
  * save a file from a link, but it can hand a PNG to the share sheet — which is
@@ -216,12 +220,20 @@ function roundRect(
   ctx.closePath()
 }
 
+/** Anything with words, a date and an id can become a picture. */
+export type Postable = {
+  id: string
+  title: string | null
+  body: string
+  created_at: string
+}
+
 export default function NoteImage({
   note,
   authorName,
   onClose,
 }: {
-  note: LoveNote | null
+  note: Postable | null
   authorName: string
   onClose: () => void
 }) {
