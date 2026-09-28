@@ -134,8 +134,55 @@ function seeded(seed: string): () => number {
   }
 }
 
-/** A four-point star — the shape ✨ actually is, rather than a dot. */
-function sparkle(
+/**
+ * A four-point star, crisp.
+ *
+ * The first version was mostly halo — a radial gradient two and a half times
+ * the size of the star itself — so on a light background they came out as
+ * grey smudges with something vaguely pointy inside. The app's own star field
+ * is hard-edged white dots at one or two pixels with no blur at all, and that
+ * is the look: the shape does the work, not the glow.
+ *
+ * The waist controls everything. Control points near the centre give long
+ * tapered points; control points far out give a fat diamond. 0.12 is a glint.
+ */
+function star(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  colour: string,
+  alpha: number,
+  glow = false,
+) {
+  const waist = r * 0.12
+
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.globalAlpha = alpha
+  ctx.fillStyle = colour
+
+  // A shadow rather than a painted gradient: it hugs the shape, so the star
+  // stays sharp and only the air around it lifts.
+  if (glow) {
+    ctx.shadowColor = colour
+    ctx.shadowBlur = r * 1.6
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(0, -r)
+  ctx.quadraticCurveTo(waist, -waist, r, 0)
+  ctx.quadraticCurveTo(waist, waist, 0, r)
+  ctx.quadraticCurveTo(-waist, waist, -r, 0)
+  ctx.quadraticCurveTo(-waist, -waist, 0, -r)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.restore()
+}
+
+/** The dust between the stars. Same as the app's night sky: a hard dot. */
+function speck(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -144,31 +191,11 @@ function sparkle(
   alpha: number,
 ) {
   ctx.save()
-  ctx.translate(x, y)
-  ctx.globalAlpha = alpha
-
-  // The halo. Without it they read as specks of dust rather than light.
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2.6)
-  glow.addColorStop(0, colour)
-  glow.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.globalAlpha = alpha * 0.4
-  ctx.fillStyle = glow
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 2.6, 0, Math.PI * 2)
-  ctx.fill()
-
-  // The star. Concave sides, so the points taper the way a glint does.
   ctx.globalAlpha = alpha
   ctx.fillStyle = colour
   ctx.beginPath()
-  ctx.moveTo(0, -r)
-  ctx.quadraticCurveTo(0, 0, r, 0)
-  ctx.quadraticCurveTo(0, 0, 0, r)
-  ctx.quadraticCurveTo(0, 0, -r, 0)
-  ctx.quadraticCurveTo(0, 0, 0, -r)
-  ctx.closePath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fill()
-
   ctx.restore()
 }
 
@@ -261,20 +288,39 @@ export default function NoteImage({
     // light pools in the photographs this is pretending to be.
     if (sparkles) {
       const rand = seeded(note.id)
-      const count = Math.round((w * h) / 26000)
 
-      for (let i = 0; i < count; i++) {
+      // On a dark card the stars are white, the way the app's night sky is —
+      // the accent as a fill turned them muddy. On paper white is invisible,
+      // so that one alone uses its accent.
+      const lightInk = dark ? '#FFFFFF' : t.accent
+
+      // The dust first, so the stars sit on top of it.
+      for (let i = 0; i < Math.round((w * h) / 9000); i++) {
         const x = rand() * w
         const yRaw = rand()
-        // Push them out of the middle third, where the note sits.
-        const y = yRaw < 0.5 ? yRaw * 0.66 * h : (0.82 + (yRaw - 0.5) * 0.36) * h
+        // Out of the middle band, where the words are.
+        const y = yRaw < 0.5 ? yRaw * 0.62 * h : (0.8 + (yRaw - 0.5) * 0.4) * h
+        speck(ctx, x, y, w * (0.0011 + rand() * 0.0018), lightInk, dark ? 0.2 + rand() * 0.45 : 0.1 + rand() * 0.2)
+      }
 
-        // A few big ones carry it; the rest are dust.
-        const big = rand() < 0.12
-        const r = big ? w * (0.012 + rand() * 0.014) : w * (0.002 + rand() * 0.005)
-        const alpha = big ? 0.5 + rand() * 0.4 : 0.15 + rand() * 0.4
+      // Then a handful of real ones. Few and large: a dozen glints read as
+      // sparkle, forty read as noise.
+      for (let i = 0; i < 11; i++) {
+        const x = 0.06 * w + rand() * 0.88 * w
+        const yRaw = rand()
+        const y = yRaw < 0.5 ? (0.04 + yRaw * 0.5) * h : (0.82 + (yRaw - 0.5) * 0.34) * h
 
-        sparkle(ctx, x, y, r, rand() < 0.75 ? t.accent : t.ink, alpha)
+        const r = w * (0.009 + rand() * 0.02)
+        const gold = rand() < 0.45
+        star(
+          ctx,
+          x,
+          y,
+          r,
+          gold ? t.accent : lightInk,
+          dark ? 0.55 + rand() * 0.4 : 0.3 + rand() * 0.3,
+          dark,
+        )
       }
     }
 
