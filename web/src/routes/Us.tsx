@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
+import Icon, { type IconName } from '../components/Icon'
 import { cx, ErrorNote, Loading, PageHeader } from '../components/ui'
 import { longDate } from '../lib/format'
 import type { Achievement, AchievementDef, CoupleStats } from '../lib/types'
@@ -76,16 +77,16 @@ export default function Us() {
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="Answers" value={stats?.answers_given ?? 0} emoji="💌" />
-        <Stat label="Cards played" value={stats?.cards_played ?? 0} emoji="🃏" />
-        <Stat label="Notes" value={stats?.notes_written ?? 0} emoji="📌" />
+        <Stat label="Answers" value={stats?.answers_given ?? 0} icon="letter" />
+        <Stat label="Cards played" value={stats?.cards_played ?? 0} icon="cards" />
+        <Stat label="Notes" value={stats?.notes_written ?? 0} icon="notes" />
         {/* This tile used to say "Memories" while counting timeline entries,
             so a couple with photos and notes still saw 0. */}
-        <Stat label="Moments" value={stats?.moments_sent ?? 0} emoji="📸" />
-        <Stat label="Timeline" value={stats?.memories_added ?? 0} emoji="🗓️" />
-        <Stat label="Compliments" value={stats?.compliments_sent ?? 0} emoji="💕" />
-        <Stat label="Sealed letters" value={stats?.vault_items ?? 0} emoji="🔒" />
-        <Stat label="Little nudges" value={stats?.nudges_sent ?? 0} emoji="🫂" />
+        <Stat label="Moments" value={stats?.moments_sent ?? 0} icon="camera" />
+        <Stat label="Timeline" value={stats?.memories_added ?? 0} icon="timeline" />
+        <Stat label="Compliments" value={stats?.compliments_sent ?? 0} icon="heart" />
+        <Stat label="Sealed letters" value={stats?.vault_items ?? 0} icon="lock" />
+        <Stat label="Little nudges" value={stats?.nudges_sent ?? 0} icon="nudges" />
       </div>
 
       <section className="space-y-3">
@@ -146,10 +147,10 @@ export default function Us() {
   )
 }
 
-function Stat({ label, value, emoji }: { label: string; value: number; emoji: string }) {
+function Stat({ label, value, icon }: { label: string; value: number; icon: IconName }) {
   return (
     <div className="surface animate-rise px-4 py-4 text-center">
-      <p className="text-xl">{emoji}</p>
+      <Icon name={icon} size={22} className="mx-auto text-pink-400" />
       <p className="mt-1 font-display text-2xl text-ink">{value.toLocaleString()}</p>
       <p className="text-[0.65rem] tracking-wide text-ink-faint uppercase">{label}</p>
     </div>

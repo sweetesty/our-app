@@ -1,30 +1,101 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { signedUrl } from '../lib/media'
 import { useSession } from '../context/SessionProvider'
 import { useDaysSince } from '../lib/useDaysSince'
 import InAppAlerts from './InAppAlerts'
 import Logo from './Logo'
+import Icon, { type IconName } from './Icon'
 import { cx } from './ui'
 
-const NAV = [
-  { to: '/', icon: '✨', label: 'Today', end: true },
-  { to: '/moments', icon: '📸', label: 'Moments' },
-  { to: '/chat', icon: '💬', label: 'Chat' },
-  { to: '/cards', icon: '🃏', label: 'Cards' },
-  { to: '/notes', icon: '📌', label: 'Notes' },
-  { to: '/timeline', icon: '🗓️', label: 'Timeline' },
-  { to: '/memories', icon: '🖼️', label: 'Memories' },
-  { to: '/vault', icon: '🎁', label: 'Vault' },
-  { to: '/nudges', icon: '🫂', label: 'Nudges' },
-  { to: '/us', icon: '🏆', label: 'Us' },
-  { to: '/search', icon: '🔎', label: 'Search' },
-  { to: '/settings', icon: '⚙️', label: 'Settings' },
+const NAV: { to: string; icon: IconName; label: string; end?: boolean }[] = [
+  { to: '/', icon: 'today', label: 'Today', end: true },
+  { to: '/moments', icon: 'moments', label: 'Moments' },
+  { to: '/chat', icon: 'chat', label: 'Chat' },
+  { to: '/cards', icon: 'cards', label: 'Cards' },
+  { to: '/notes', icon: 'notes', label: 'Notes' },
+  { to: '/timeline', icon: 'timeline', label: 'Timeline' },
+  { to: '/memories', icon: 'memories', label: 'Memories' },
+  { to: '/vault', icon: 'vault', label: 'Vault' },
+  { to: '/handbook', icon: 'handbook', label: 'Handbook' },
+  { to: '/bucket', icon: 'bucket', label: 'Bucket list' },
+  { to: '/date', icon: 'dice', label: 'Date night' },
+  { to: '/nudges', icon: 'nudges', label: 'Nudges' },
+  { to: '/us', icon: 'us', label: 'Us' },
+  { to: '/search', icon: 'search', label: 'Search' },
+  { to: '/settings', icon: 'settings', label: 'Settings' },
 ]
+
+/** The four the app starts you with — the ones most couples open daily. */
+const DEFAULT_PINNED = ['/', '/chat', '/moments', '/cards']
+
+/** Icons that read better solid when you're on that tab. */
+const FILLABLE = new Set<IconName>(['heart', 'flame', 'bolt', 'sparkle'])
+
+const PINNED_KEY = 'ours:pinned-tabs'
+
+/**
+ * Which four are on the bar. Per device rather than per couple: you each use
+ * the app differently, and one of you pinning Vault shouldn't move the other's
+ * thumb.
+ */
+function readPinned(): string[] {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY)
+    const saved = raw ? (JSON.parse(raw) as string[]) : null
+    // Filtered against NAV so a tab removed in a later version can't leave a
+    // dead button on the bar.
+    const valid = saved?.filter((p) => NAV.some((n) => n.to === p)) ?? []
+    return valid.length > 0 ? valid.slice(0, 4) : DEFAULT_PINNED
+  } catch {
+    return DEFAULT_PINNED
+  }
+}
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { summary } = useSession()
   const { pathname } = useLocation()
+
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [pinned, setPinnedState] = useState<string[]>(readPinned)
+
+  function setPinned(next: string[]) {
+    setPinnedState(next)
+    try {
+      localStorage.setItem(PINNED_KEY, JSON.stringify(next))
+    } catch {
+      /* no store, no memory of it — the bar still works this session */
+    }
+  }
+
+  // Ordered by NAV, not by when you pinned them, so the bar doesn't reshuffle
+  // itself under your thumb.
+  const pinnedItems = NAV.filter((n) => pinned.includes(n.to))
+
+  // Unread counts belong on the tab, not only on the app icon — the icon badge
+  // is invisible once you are already inside.
+  const badgeFor = (to: string) =>
+    to === '/chat'
+      ? (summary?.unread_messages ?? 0)
+      : to === '/notes'
+        ? (summary?.unread_notes ?? 0)
+        : 0
+
+  // Anything unread that isn't on the bar has to surface on More, or it is
+  // simply invisible.
+  const restBadge = NAV.filter((n) => !pinned.includes(n.to)).reduce(
+    (sum, n) => sum + badgeFor(n.to),
+    0,
+  )
+  const restActive = !pinnedItems.some((n) =>
+    n.end ? pathname === n.to : pathname.startsWith(n.to),
+  )
+
+  // Navigating away closes it — otherwise tapping a destination leaves the
+  // sheet sitting over the screen you just asked for.
+  useEffect(() => {
+    setDrawerOpen(false)
+  }, [pathname])
   /** Screens that need the whole box and do their own scrolling. */
   const ownsItsScrolling = pathname.startsWith('/chat')
   const couple = summary?.couple
@@ -140,8 +211,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
               though the app had forgotten. Show both, labelled. */}
           <span className="flex items-center gap-1.5 text-[0.7rem] font-medium whitespace-nowrap text-rose-200 sm:gap-2 sm:text-xs">
             {together !== null && (
-              <span>
-                <strong className="text-white">{together.toLocaleString()}</strong> days 💗
+              <span className="flex items-center gap-1">
+                <strong className="text-white">{together.toLocaleString()}</strong> days
+                <Icon name="heart" size={12} filled className="text-pink-400" />
               </span>
             )}
             {together !== null && streak > 0 && (
@@ -150,40 +222,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </span>
             )}
             {streak > 0 && (
-              <span title="Days you've both answered in a row">
-                <strong className="text-white">{streak}</strong> 🔥
+              <span
+                title="Days you've both answered in a row"
+                className="flex items-center gap-1"
+              >
+                <strong className="text-white">{streak}</strong>
+                <Icon name="flame" size={12} filled className="text-amber-400" />
               </span>
             )}
-            {together === null && streak === 0 && <span>Just the two of you 💗</span>}
+            {together === null && streak === 0 && (
+              <span className="flex items-center gap-1">
+                Just the two of you
+                <Icon name="heart" size={12} filled className="text-pink-400" />
+              </span>
+            )}
           </span>
         </div>
       </header>
-
-      {/* Main Navigation Tabs */}
-      {/* Twelve tabs on a 360px screen is a scroll strip whatever you do. The
-          part that was missing is that it never scrolled itself — land on
-          Settings from a notification and the active tab was three swipes off
-          the right edge with nothing to say so. */}
-      <nav className="scrollbar-none flex shrink-0 gap-2 overflow-x-auto border-b border-rose-800/30 bg-rose-950/40 px-4 py-3 sm:px-6">
-        {NAV.map((item) => (
-          <NavItem
-            key={item.to}
-            {...item}
-            active={
-              item.end ? pathname === item.to : pathname.startsWith(item.to)
-            }
-            // Unread counts belong on the tab, not only on the app icon —
-            // the icon badge is invisible once you are already inside.
-            badge={
-              item.to === '/chat'
-                ? (summary?.unread_messages ?? 0)
-                : item.to === '/notes'
-                  ? (summary?.unread_notes ?? 0)
-                  : 0
-            }
-          />
-        ))}
-      </nav>
 
       {/* App Container */}
       {/* The content pane. min-h-0 is what lets it scroll: a flex child will
@@ -212,17 +267,74 @@ export default function AppShell({ children }: { children: ReactNode }) {
         style={
           ownsItsScrolling
             ? undefined
-            : // Clear the home indicator on gesture-navigation phones.
-              { paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }
+            : // The tab bar below owns the home-indicator inset now, so this
+              // is ordinary breathing room rather than a safe-area clearance.
+              { paddingBottom: '1.5rem' }
         }
       >
         {children}
       </main>
+
+      {/* Four pinned, then everything else.
+          Fifteen destinations in one scrolling strip meant you were always
+          hunting: the four you use hourly were the same swipe away as the ones
+          you open monthly, and the strip had to scroll itself to show you where
+          you were. Four fixed tabs and a drawer is the trade — one tap for the
+          things you actually use, two for the rest, and nothing ever scrolls
+          sideways. Which four is your choice, kept per device. */}
+      <nav
+        className="dark-glass z-40 flex shrink-0 items-stretch gap-1 border-t border-rose-800/40 px-2 pt-1.5"
+        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
+      >
+        {pinnedItems.map((item) => (
+          <TabButton
+            key={item.to}
+            {...item}
+            active={item.end ? pathname === item.to : pathname.startsWith(item.to)}
+            badge={badgeFor(item.to)}
+          />
+        ))}
+
+        <button
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Everything else"
+          className={cx(
+            'flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 transition',
+            // The drawer's own tab lights up when you're on a screen that
+            // lives inside it — otherwise being on Vault looks like being
+            // nowhere at all.
+            restActive ? 'text-white' : 'text-rose-300 hover:text-rose-100',
+          )}
+        >
+          <span className="relative">
+            <Icon name="more" size={21} />
+            {restBadge > 0 && (
+              <span className="absolute -top-1 -right-2 grid min-w-4 place-items-center rounded-full bg-pink-500 px-1 text-[0.6rem] font-bold text-white">
+                {restBadge > 9 ? '9+' : restBadge}
+              </span>
+            )}
+          </span>
+          <span className="text-[0.65rem] font-medium">More</span>
+        </button>
+      </nav>
+
+      {drawerOpen && (
+        <MoreDrawer
+          items={NAV}
+          pinned={pinned}
+          onPin={setPinned}
+          badgeFor={badgeFor}
+          pathname={pathname}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
-function NavItem({
+/* -------------------------------------------------------------------------- */
+
+function TabButton({
   to,
   icon,
   label,
@@ -231,42 +343,157 @@ function NavItem({
   badge = 0,
 }: {
   to: string
-  icon: string
+  icon: IconName
   label: string
   end?: boolean
   active: boolean
   badge?: number
 }) {
-  const ref = useRef<HTMLAnchorElement>(null)
-
-  // Bring the current tab into the strip. `nearest` so it only moves when the
-  // tab is actually out of view, and never scrolls the page itself.
-  useEffect(() => {
-    if (!active) return
-    ref.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
-  }, [active])
-
   return (
     <NavLink
-      ref={ref}
       to={to}
       end={end}
-      className={({ isActive }) =>
-        cx(
-          'tab-btn font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5',
-          isActive
-            ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40 font-semibold'
-            : 'text-rose-200 hover:bg-rose-900/40'
-        )
-      }
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
-      {badge > 0 && (
-        <span className="grid min-w-5 place-items-center rounded-full bg-pink-500 px-1.5 text-[0.65rem] font-bold text-white">
-          {badge > 9 ? '9+' : badge}
-        </span>
+      className={cx(
+        'flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 transition',
+        active ? 'text-white' : 'text-rose-300 hover:text-rose-100',
       )}
+    >
+      <span className="relative">
+        {/* Filled when you're on it. At this size a stroke-weight change is
+            not enough to read as "here" on a phone at arm's length. */}
+        <Icon name={icon} size={21} filled={active && FILLABLE.has(icon)} />
+        {badge > 0 && (
+          <span className="absolute -top-1 -right-2 grid min-w-4 place-items-center rounded-full bg-pink-500 px-1 text-[0.6rem] font-bold text-white">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
+      </span>
+      <span className={cx('text-[0.65rem]', active ? 'font-bold' : 'font-medium')}>
+        {label}
+      </span>
+      {active && <span className="h-0.5 w-5 rounded-full bg-pink-500" />}
     </NavLink>
   )
 }
+
+/**
+ * Everything that isn't pinned.
+ *
+ * A grid rather than a list, because eleven destinations as a list is a scroll
+ * and the whole point of this was to stop scrolling to find things. Tapping the
+ * pin on one swaps it onto the bar.
+ */
+function MoreDrawer({
+  items,
+  pinned,
+  onPin,
+  badgeFor,
+  pathname,
+  onClose,
+}: {
+  items: typeof NAV
+  pinned: string[]
+  onPin: (next: string[]) => void
+  badgeFor: (to: string) => number
+  pathname: string
+  onClose: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function togglePin(to: string) {
+    // Always exactly four: pinning a fifth pushes the oldest off, which is
+    // less annoying than being told to unpin something first.
+    onPin(pinned.includes(to) ? pinned.filter((p) => p !== to) : [...pinned, to].slice(-4))
+  }
+
+  return (
+    <div
+      className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-scrim/70 backdrop-blur-sm"
+      style={{ height: 'var(--app-height, 100dvh)' }}
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Everything else"
+        onClick={(e) => e.stopPropagation()}
+        className="animate-rise max-h-[85%] w-full max-w-md overflow-y-auto rounded-t-3xl border border-rose-700/60 bg-rose-950 p-5"
+        style={{ paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-white">Everything else</h2>
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className="rounded-xl bg-rose-900/60 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-900"
+          >
+            {editing ? 'Done' : 'Choose my four'}
+          </button>
+        </div>
+
+        {editing && (
+          <p className="mb-3 text-xs text-rose-400">
+            Tap to pin or unpin. Four fit on the bar — a fifth pushes the oldest off.
+          </p>
+        )}
+
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {items.map((item) => {
+            const on = pinned.includes(item.to)
+            const here = item.end ? pathname === item.to : pathname.startsWith(item.to)
+            const badge = badgeFor(item.to)
+
+            const inner = (
+              <>
+                <span className="relative">
+                  <Icon name={item.icon} size={24} />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-pink-500 px-1 text-[0.6rem] font-bold text-white">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
+                <span className="text-center text-[0.7rem] leading-tight">{item.label}</span>
+                {editing && (
+                  <span
+                    className={cx(
+                      'text-[0.6rem] font-semibold tracking-wide uppercase',
+                      on ? 'text-pink-300' : 'text-rose-600',
+                    )}
+                  >
+                    {on ? 'pinned' : 'pin'}
+                  </span>
+                )}
+              </>
+            )
+
+            const className = cx(
+              'flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition',
+              here
+                ? 'border-pink-500/50 bg-pink-500/10 text-white'
+                : on && editing
+                  ? 'border-pink-500/40 bg-rose-900/40 text-rose-100'
+                  : 'border-rose-700/30 bg-rose-900/25 text-rose-200 hover:bg-rose-900/50',
+            )
+
+            return editing ? (
+              <button key={item.to} onClick={() => togglePin(item.to)} className={className}>
+                {inner}
+              </button>
+            ) : (
+              <NavLink key={item.to} to={item.to} end={item.end} onClick={onClose} className={className}>
+                {inner}
+              </NavLink>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+

@@ -19,7 +19,10 @@ import Search from './routes/Search'
 import Vault from './routes/Vault'
 import Nudges from './routes/Nudges'
 import Us from './routes/Us'
+import Handbook from './routes/Handbook'
 import Settings from './routes/Settings'
+import Bucket from './routes/Bucket'
+import DateNight from './routes/DateNight'
 
 export default function App() {
   const { session, ready, summary } = useSession()
@@ -79,6 +82,9 @@ export default function App() {
         <Route path="/vault" element={<Vault />} />
         <Route path="/nudges" element={<Nudges />} />
         <Route path="/us" element={<Us />} />
+        <Route path="/handbook" element={<Handbook />} />
+        <Route path="/bucket" element={<Bucket />} />
+        <Route path="/date" element={<DateNight />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

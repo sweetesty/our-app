@@ -218,6 +218,8 @@ export type NudgeKind =
   | 'kiss'
   | 'annoying'
   | 'proud'
+  /** One you wrote. Its words travel on the nudge, not in a lookup table. */
+  | 'custom'
 
 export type Nudge = {
   id: string
@@ -225,8 +227,157 @@ export type Nudge = {
   sender_id: string
   kind: NudgeKind
   message: string | null
+  /** Set on custom nudges only; the built-in six read theirs from NUDGES. */
+  emoji: string | null
+  label: string | null
   seen_at: string | null
   created_at: string
+}
+
+/** A saved custom tile, so the second send is one tap like the other six. */
+export type CustomNudge = {
+  id: string
+  couple_id: string
+  created_by: string | null
+  emoji: string
+  label: string
+  line: string | null
+  created_at: string
+}
+
+/* --- the handbook ---------------------------------------------------------
+   Sections are rows, not a union, because there are ninety of them and a
+   couple can write their own. See 0042_handbook.sql. */
+
+export type HandbookSection = {
+  id: string
+  couple_id: string | null
+  slug: string
+  group_key: 'know' | 'understand' | 'relationship' | 'fun' | 'deeper' | 'personal' | 'growing'
+  title: string
+  emoji: string
+  /** personal: one list each, acknowledged. shared: one list, nothing to ack. */
+  scope: 'personal' | 'shared'
+  prompt: string | null
+  placeholder: string | null
+  weight: 'light' | 'heavy'
+  sort_order: number
+}
+
+export type HandbookEntry = {
+  id: string
+  section_id: string
+  slug: string
+  scope: 'personal' | 'shared'
+  author_id: string
+  author_name: string | null
+  mine: boolean
+  body: string
+  /** Your own and shared ones always come back acknowledged — see handbook(). */
+  acked: boolean
+  acked_at: string | null
+  created_at: string
+}
+
+export type HandbookSummary = {
+  theirs_total: number
+  theirs_unacked: number
+  mine_total: number
+  mine_acked: number
+  shared_total: number
+}
+
+/* --- games ----------------------------------------------------------------
+   Three mechanics underneath eleven games. See 0046_games.sql. */
+
+export type Game = {
+  slug: string
+  name: string
+  emoji: string
+  tagline: string
+  mode: 'match' | 'guess' | 'draw'
+  rounds: number
+  sort_order: number
+}
+
+export type GameRound = {
+  round_id: string
+  idx: number
+  total: number
+  mode: 'match' | 'guess' | 'draw'
+  body: string
+  option_a: string | null
+  option_b: string | null
+  subject_id: string | null
+  subject_name: string | null
+  /** guess rounds: true when you're the one answering honestly. */
+  i_am_subject: boolean
+  my_answer: string | null
+  /** Withheld by current_game_round() until yours is in. */
+  their_answer: string | null
+  revealed: boolean
+  correct: boolean | null
+  finished: boolean
+  score: number
+  scored: number
+  /** Carried by the client, not the RPC — the screen already knows it. */
+  game_slug?: string
+}
+
+export type BucketItem = {
+  id: string
+  couple_id: string
+  category: 'places' | 'experiences' | 'food' | 'goals' | 'save_for' | 'always'
+  title: string
+  note: string | null
+  created_by: string | null
+  completed_at: string | null
+  completed_by: string | null
+  milestone_id: string | null
+  created_at: string
+}
+
+export type DateIdea = {
+  id: string
+  title: string
+  emoji: string
+  budget: 'free' | 'cheap' | 'mid' | 'splash'
+  indoor: boolean | null
+  minutes: number
+  vibe: 'romantic' | 'fun' | 'chill' | null
+  pick_id: string
+  /** Set when the idea came off the bucket list rather than the idea pile. */
+  bucket_id: string | null
+}
+
+/* --- the argument log -----------------------------------------------------
+   No fault column, on purpose. See 0050_fights.sql. */
+
+export type Fight = {
+  id: string
+  couple_id: string
+  logged_by: string | null
+  started_on: string
+  /** Null while it's still going. */
+  resolved_on: string | null
+  what_about: string | null
+  what_helped: string | null
+  created_at: string
+}
+
+export type FightStats = {
+  total: number
+  open_id: string | null
+  open_since: string | null
+  open_days: number | null
+  days_since: number | null
+  longest_peace: number | null
+  avg_days: number | null
+  fastest_makeup: number | null
+  fights_month: number
+  fights_year: number
+  dates_month: number
+  dates_year: number
 }
 
 export type Streak = {
