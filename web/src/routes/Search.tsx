@@ -40,6 +40,11 @@ const ICON: Record<string, string> = {
   vault: '🔒',
   compliment: '💕',
   photo: '📷',
+  handbook: '📖',
+  bucket: '🪣',
+  game: '🎮',
+  fight: '🌧️',
+  date: '🎲',
 }
 
 const LABEL: Record<string, string> = {
@@ -52,6 +57,11 @@ const LABEL: Record<string, string> = {
   vault: 'Vault',
   compliment: 'Compliment',
   photo: 'Our day',
+  handbook: 'Handbook',
+  bucket: 'Bucket list',
+  game: 'Game',
+  fight: 'When it was hard',
+  date: 'Date night',
 }
 
 /**

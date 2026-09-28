@@ -9,6 +9,7 @@ import { ago } from '../lib/format'
 import { useDaysSince } from '../lib/useDaysSince'
 import { NUDGES, type TodayQuestion } from '../lib/types'
 import Emoji from '../components/Emoji'
+import OnThisDay from '../components/OnThisDay'
 
 function greeting() {
   const h = new Date().getHours()
@@ -165,6 +166,10 @@ export default function Home() {
         </span>
         <span className="text-xs text-ink-faint">tap</span>
       </button>
+
+      {/* The only thing in the app that reads rather than writes. Renders
+          nothing at all when there is nothing to resurface. */}
+      <OnThisDay />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile to="/cards" icon="cards" label="Draw a card" />

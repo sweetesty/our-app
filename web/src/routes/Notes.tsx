@@ -20,6 +20,7 @@ import Reactions, { type ReactionRow } from '../components/Reactions'
 import Replies from '../components/Replies'
 import { MOODS, type LoveNote, type NoteMood } from '../lib/types'
 import Emoji from '../components/Emoji'
+import NoteImage from '../components/NoteImage'
 
 export default function Notes() {
   const { userId, coupleId, summary, refresh } = useSession()
@@ -31,6 +32,8 @@ export default function Notes() {
   const [reading, setReading] = useState<LoveNote | null>(null)
   const [filter, setFilter] = useState<'all' | 'mine' | 'theirs' | 'favourites'>('all')
   const [moodFilter, setMoodFilter] = useState<string>('all')
+  /** The note being turned into a picture, if any. */
+  const [posting, setPosting] = useState<LoveNote | null>(null)
   const [query, setQuery] = useState('')
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [noteReactions, setNoteReactions] = useState<Record<string, ReactionRow[]>>({})
@@ -361,6 +364,9 @@ export default function Notes() {
               <Button variant="ghost" size="sm" onClick={() => void toggleFavourite(reading)}>
                 {reading.is_favourite ? '⭐ Favourited' : '☆ Favourite'}
               </Button>
+              <Button variant="ghost" size="sm" onClick={() => setPosting(reading)}>
+                🖼️ Make it a picture
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => void togglePin(reading)}>
                 {reading.is_pinned ? 'Unpin' : 'Pin to top'}
               </Button>
@@ -373,6 +379,14 @@ export default function Notes() {
           </div>
         )}
       </Modal>
+
+      {/* Turning a note into something postable. Rendered on a canvas at full
+          export size rather than screenshotted off this modal. */}
+      <NoteImage
+        note={posting}
+        authorName={posting?.author_id === userId ? 'You' : partnerName}
+        onClose={() => setPosting(null)}
+      />
     </>
   )
 }

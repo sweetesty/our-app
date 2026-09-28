@@ -380,6 +380,30 @@ export type FightStats = {
   dates_year: number
 }
 
+/* --- the archive reading itself back --------------------------------------
+   See 0052_on_this_day.sql. */
+
+export type OnThisDayItem = {
+  id: string
+  kind: string
+  title: string | null
+  body: string | null
+  media_path: string | null
+  /** Route to open it on. */
+  source: string
+  happened_on: string
+  years_ago: number
+}
+
+export type AnsweredBefore = {
+  question: string
+  asked_on: string
+  mine: string | null
+  /** Null if you never answered that day — the reveal gate does not expire. */
+  theirs: string | null
+  years_ago: number
+}
+
 export type Streak = {
   couple_id: string
   current_streak: number
