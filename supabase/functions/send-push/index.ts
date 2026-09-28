@@ -34,14 +34,18 @@ type PushEvent = {
     | 'reveal'
     | 'surprise'
     | 'reply'
+    | 'handbook'
+    | 'bucket'
     | 'test'
   couple_id: string
   sender_id: string
   sender_name: string
   kind?: string
   message?: string | null
-  /** vault only: the label on the outside of the letter. */
+  /** vault: the label on the outside of the letter. nudge: a custom one's words. */
   label?: string | null
+  /** nudge only: the emoji on a custom one, in place of the NUDGE_COPY lookup. */
+  emoji?: string | null
 }
 
 /** Mirrors NUDGES in web/src/lib/types.ts and kNudges in mobile/lib/models.dart. */
@@ -83,6 +87,10 @@ function pathFor(type: string, kind?: string): string {
       return kind === 'vault' ? '/vault' : '/notes'
     case 'note':
       return '/notes'
+    case 'handbook':
+      return '/handbook'
+    case 'bucket':
+      return '/bucket'
     case 'nudge':
       return '/nudges'
     case 'date':
@@ -378,6 +386,23 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
+  if (event.type === 'bucket') {
+    // Ticking one off is news; it also just wrote itself onto the timeline.
+    return {
+      title: event.sender_name + " ticked one off ✨",
+      body: event.label ?? "Something off the bucket list.",
+    }
+  }
+  if (event.type === 'handbook') {
+    // The section name is the whole signal. "added a boundary" and "added a
+    // food they don't like" deserve different amounts of your attention, and
+    // only the title tells them apart.
+    return {
+      title: `${event.sender_name} added to ${event.label ?? 'the handbook'} 📖`,
+      body: event.message ?? 'Something they want you to know.',
+    }
+  }
+
   if (event.type === 'vault') {
     return {
       title: 'Something just unlocked 🎁',
@@ -389,10 +414,16 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
-  const copy = NUDGE_COPY[event.kind ?? ''] ?? {
-    emoji: '❤️',
-    line: 'is thinking of you',
-  }
+  // A nudge they wrote themselves carries its own words. Falling through to
+  // NUDGE_COPY would have put "is thinking of you" on the lock screen in the
+  // one case where the exact phrase is the entire point of sending it.
+  const copy =
+    event.kind === 'custom' && event.label
+      ? { emoji: event.emoji ?? '💌', line: event.label }
+      : (NUDGE_COPY[event.kind ?? ''] ?? {
+          emoji: '❤️',
+          line: 'is thinking of you',
+        })
 
   return {
     title: `${event.sender_name} ${copy.line} ${copy.emoji}`,
