@@ -87,11 +87,11 @@ seeds(item, actual, expected) as (
   union all select 'seed · games',
          (select count(*) from public.games), 11
   union all select 'seed · game prompts',
-         (select count(*) from public.game_prompts where couple_id is null), 160
+         (select count(*) from public.game_prompts where couple_id is null), 152
   union all select 'seed · date ideas',
-         (select count(*) from public.date_ideas where couple_id is null), 92
+         (select count(*) from public.date_ideas where couple_id is null), 91
   union all select 'seed · built-in cards',
-         (select count(*) from public.cards where couple_id is null), 152
+         (select count(*) from public.cards where couple_id is null), 151
   union all select 'seed · push tiers',
          (select count(*) from public.push_tiers), 20
 ),
@@ -100,7 +100,10 @@ seed_check as (
          actual::text || '/~' || expected::text as found,
          case
            when actual = 0 then '❌ EMPTY — the seed did not run'
-           when actual < expected * 0.9 then '⚠️ short of expected'
+           -- Counted from the migration files rather than estimated. A few
+           -- over is fine — a seed run twice before 0049 added its unique
+           -- index could leave near-duplicates that differ by whitespace.
+           when actual < expected then '⚠️ short of expected'
            else '✅ OK'
          end as status
   from seeds
