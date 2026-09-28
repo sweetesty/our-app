@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import Logo, { APP_NAME, APP_TAGLINE } from '../components/Logo'
 import { Button } from '../components/ui'
+import Emoji from '../components/Emoji'
 
 const FEATURES = [
   {
@@ -119,7 +120,7 @@ export default function Landing() {
           </article>
 
           <article className="paper taped taped-left tilt-c w-52 px-5 pt-9 pb-7 text-left">
-            <p className="mb-1 text-2xl">🔒</p>
+            <Emoji size={26} className="mb-1">🔒</Emoji>
             <p className="text-base text-ink">Open on your birthday</p>
             <p className="mt-1 text-xs text-ink-faint">opens in 3 months</p>
           </article>

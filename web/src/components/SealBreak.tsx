@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { celebrateReveal } from '../lib/celebrate'
 import { cx } from './ui'
+import Emoji from './Emoji'
 
 /**
  * Breaking a vault seal.
@@ -134,7 +135,7 @@ export default function SealBreak({
               )}
             >
               <span className="animate-seal-heat absolute inset-0 rounded-full" />
-              <span className="text-4xl drop-shadow">💗</span>
+              <Emoji size={40} className="drop-shadow">💗</Emoji>
 
               {/* fractures */}
               {stage === 'crack' && (
@@ -221,7 +222,7 @@ export function WaxSeal({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="text-3xl drop-shadow">💗</span>
+      <Emoji size={32} className="drop-shadow">💗</Emoji>
     </span>
   )
 }

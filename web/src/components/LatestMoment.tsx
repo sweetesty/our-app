@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { signedUrl } from '../lib/media'
 import { ago } from '../lib/format'
 import Reactions, { type ReactionRow } from './Reactions'
+import Emoji from './Emoji'
 
 type Latest = {
   id: string
@@ -60,9 +61,7 @@ export default function LatestMoment() {
             className="aspect-square w-full object-cover"
           />
         ) : (
-          <div className="grid aspect-square w-full place-items-center bg-rose-950/60 text-4xl">
-            📸
-          </div>
+          <Emoji size={40} className="grid aspect-square w-full place-items-center bg-rose-950/60">📸</Emoji>
         )}
       </Link>
 

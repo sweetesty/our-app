@@ -19,6 +19,7 @@ import { signedUrls, uploadMedia } from '../lib/media'
 import Reactions, { type ReactionRow } from '../components/Reactions'
 import Replies from '../components/Replies'
 import { MOODS, type LoveNote, type NoteMood } from '../lib/types'
+import Emoji from '../components/Emoji'
 
 export default function Notes() {
   const { userId, coupleId, summary, refresh } = useSession()
@@ -232,7 +233,7 @@ export default function Notes() {
         /* Notes exist, they are just filtered out. Saying "blank wall" here
            told people their notes were gone. */
         <div className="rounded-3xl border border-rose-700/40 bg-rose-900/25 p-8 text-center">
-          <p className="text-3xl">🔍</p>
+          <Emoji size={32}>🔍</Emoji>
           <p className="mt-2 text-sm text-white">
             No notes match {query ? `"${query.trim()}"` : 'those filters'}
           </p>

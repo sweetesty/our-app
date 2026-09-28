@@ -13,6 +13,7 @@ import { cx, ErrorNote, Loading } from '../components/ui'
 import Reactions, { type ReactionRow } from '../components/Reactions'
 import VoiceRecorder from '../components/VoiceRecorder'
 import type { Message } from '../lib/types'
+import Emoji from '../components/Emoji'
 
 /**
  * Composer icons.
@@ -526,7 +527,7 @@ export default function Chat() {
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 pt-4 pb-4 sm:px-6">
         {messages.length === 0 && (
           <div className="surface mt-8 p-8 text-center">
-            <p className="text-3xl">💬</p>
+            <Emoji size={32}>💬</Emoji>
             <p className="mt-3 text-sm text-ink">Nothing here yet.</p>
             <p className="mt-1 text-xs text-ink-faint">Say the first thing to {partnerName}.</p>
           </div>

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Twemoji SVGs, copied in from node_modules by scripts/sync-emoji.mjs on
+# every build. 3,700 generated files do not belong in the history.
+public/emoji/

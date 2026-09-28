@@ -6,6 +6,7 @@ import { ago } from '../lib/format'
 import { signedUrls } from '../lib/media'
 import Reactions, { type ReactionRow } from './Reactions'
 import { cx, Modal } from './ui'
+import Emoji from './Emoji'
 
 type Compliment = {
   id: string
@@ -213,7 +214,7 @@ export default function Compliments({
       >
         {sent ? (
           <div className="py-10 text-center">
-            <p className="animate-unseal text-5xl">💗</p>
+            <Emoji size={50} className="animate-unseal">💗</Emoji>
             <p className="mt-3 text-sm font-semibold text-white">Sent</p>
             <p className="mt-1 text-xs text-rose-300">
               It's on their phone already.
@@ -278,7 +279,7 @@ export default function Compliments({
               onClick={() => setWriting(true)}
               className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-rose-700/50 p-3.5 text-left transition hover:border-pink-500/50"
             >
-              <span className="text-2xl">✍️</span>
+              <Emoji size={26}>✍️</Emoji>
               <span className="text-sm text-rose-200">Write my own</span>
             </button>
 
@@ -310,7 +311,7 @@ export default function Compliments({
       </Modal>
 
       {/* history */}
-      <Modal open={showHistory} onClose={closeHistory} title="Kind words 💌">
+      <Modal open={showHistory} onClose={closeHistory} title="Kind words" icon="letter">
         {history.length === 0 ? (
           <p className="py-6 text-center text-sm text-rose-300">
             Nothing yet. Go on — say the thing.

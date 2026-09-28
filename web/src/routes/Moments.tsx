@@ -5,6 +5,7 @@ import { cx, ErrorNote, Modal } from '../components/ui'
 import CameraCapture from '../components/CameraCapture'
 import MomentStack from '../components/MomentStack'
 import { uploadMedia } from '../lib/media'
+import Icon from '../components/Icon'
 
 /**
  * Moments — a photo sent straight to your person.
@@ -77,7 +78,7 @@ export default function Moments() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-lg font-bold text-white">📸 Moments</h3>
+        <h3 className="flex items-center gap-2 text-lg font-bold text-white"><Icon name="camera" size={19} className="text-pink-400" />Moments</h3>
         <button
           onClick={() => setComposing(true)}
           className="rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:from-pink-500 hover:to-rose-500"
@@ -90,7 +91,7 @@ export default function Moments() {
 
       <MomentStack key={reloadKey} />
 
-      <Modal open={composing} onClose={closeComposer} title="Send a moment 📸">
+      <Modal open={composing} onClose={closeComposer} title="Send a moment" icon="camera">
         {!pending ? (
           <CameraCapture
             onCaptured={(file, preview) => setPending({ file, preview })}

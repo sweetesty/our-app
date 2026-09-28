@@ -8,6 +8,8 @@ import MoodCheckin from '../components/MoodCheckin'
 import MomentStack from '../components/MomentStack'
 import DailyReveal from '../components/DailyReveal'
 import type { DailyAnswer, TodayQuestion } from '../lib/types'
+import Icon from '../components/Icon'
+import Emoji from '../components/Emoji'
 
 export default function Today() {
   const { summary, userId, refresh } = useSession()
@@ -178,7 +180,7 @@ export default function Today() {
 
       {/* Quick Signals */}
       <div className="bg-rose-900/30 border border-rose-700/30 rounded-3xl p-5 shadow-xl">
-        <h3 className="text-xs font-bold tracking-wider text-rose-300 uppercase mb-3">⚡ Quick Signals</h3>
+        <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold tracking-wider text-rose-300 uppercase"><Icon name="bolt" size={14} filled className="text-amber-400" />Quick Signals</h3>
         {/* Kinds must match the check constraint in 0002_features.sql exactly —
             'thinking' was rejected by the database and that button never worked. */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
@@ -282,7 +284,7 @@ export default function Today() {
                 {/* face down — tap this to turn it over */}
                 <div className="flip-face flip-front card-back grid min-h-[128px] place-items-center rounded-2xl">
                   <div className="text-center">
-                    <span className="animate-pulse-soft block text-3xl">🔒</span>
+                    <Emoji size={32} className="animate-pulse-soft">🔒</Emoji>
                     <span className="mt-2 block text-xs font-semibold text-rose-200">
                       {partnerName} answered — tap to reveal ✨
                     </span>
@@ -320,7 +322,7 @@ export default function Today() {
               <p className="text-sm text-rose-100 whitespace-pre-wrap">{mine!.body}</p>
             </div>
             <div className="p-6 bg-rose-900/20 border border-rose-700/20 rounded-2xl text-center border-dashed">
-              <span className="text-2xl mb-2 block animate-pulse">🔒</span>
+              <Emoji size={26} className="mb-2 animate-pulse">🔒</Emoji>
               <p className="text-sm text-rose-300 font-medium">Waiting on {partnerName}</p>
               <p className="text-xs text-rose-400/70 mt-1">Answers unlock once you both reply.</p>
             </div>

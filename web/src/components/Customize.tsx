@@ -5,14 +5,7 @@ import { uploadMedia, signedUrl } from '../lib/media'
 import { ACCENTS, BACKGROUNDS, applyAppearance } from '../lib/appearance'
 import { REACTION_SET } from './Reactions'
 import { Avatar, Button, cx, ErrorNote, Field, Input } from './ui'
-
-/** Enough to fill the picker without becoming a keyboard. */
-const EMOJI_CHOICES = [
-  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
-  '😂', '🤣', '🥹', '🥺', '😍', '🥰', '😘', '😳',
-  '🔥', '✨', '💯', '👏', '🙌', '🫶', '💗', '💫',
-  '😭', '🤤', '😮', '🙈', '😏', '🫠', '🎉', '🌹',
-]
+import EmojiPicker from './EmojiPicker'
 
 const MAX_REACTIONS = 18
 
@@ -239,24 +232,34 @@ export default function Customize() {
         <p className="mb-2 text-xs text-ink-faint">
           The first three are the one-tap buttons on a photo. {emoji.length}/{MAX_REACTIONS}.
         </p>
-        <div className="grid grid-cols-8 gap-1">
-          {EMOJI_CHOICES.map((e) => {
-            const on = emoji.includes(e)
-            return (
+        {/* What you have chosen, in the order the picker will show it — the
+            first three are the one-tap buttons, so the order is the point. */}
+        {emoji.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {emoji.map((e, i) => (
               <button
-                key={e}
+                key={`${e}-${i}`}
                 onClick={() => toggleEmoji(e)}
-                aria-pressed={on}
+                aria-label={`Remove ${e}`}
                 className={cx(
-                  'rounded-xl py-1.5 text-lg transition',
-                  on ? 'bg-pink-600/40 ring-1 ring-pink-500' : 'bg-rose-950/50 opacity-50',
+                  'rounded-xl px-2 py-1.5 text-lg transition hover:opacity-60',
+                  i < 3 ? 'bg-pink-600/40 ring-1 ring-pink-500' : 'bg-rose-950/60',
                 )}
               >
                 {e}
               </button>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Was a fixed board of 32. Tapping one here adds or removes it. */}
+        <EmojiPicker onPick={toggleEmoji} />
+
+        {emoji.length >= MAX_REACTIONS && (
+          <p className="mt-2 text-xs text-rose-400">
+            That's the {MAX_REACTIONS} it will hold. Take one out to swap it.
+          </p>
+        )}
         {emoji.length === 0 && (
           <p className="mt-2 text-xs text-rose-400">
             Pick at least one, or the picker has nothing in it.

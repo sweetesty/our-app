@@ -19,6 +19,7 @@ import VoiceRecorder from '../components/VoiceRecorder'
 import SealBreak, { WaxSeal } from '../components/SealBreak'
 import Replies from '../components/Replies'
 import type { VaultContents, VaultItem } from '../lib/types'
+import Emoji from '../components/Emoji'
 
 const CONDITION_PRESETS = [
   'when you miss me',
@@ -368,7 +369,7 @@ function Reader({
           </div>
         ) : (
           <div className="space-y-3 py-6 text-center">
-            <p className="text-5xl">🔒</p>
+            <Emoji size={50}>🔒</Emoji>
             <p className="text-sm text-ink-muted">{untilUnlock(item.unlock_at)}</p>
             <p className="text-xs leading-relaxed text-ink-faint">
               Not even the app can show you this one early — the words are behind a

@@ -49,9 +49,29 @@ export default defineConfig({
         // full-resolution PNGs is 2.6MB, iOS fetches whichever one it needs by
         // itself, and no device will ever want more than one of them. Left in,
         // they would make every user download twelve images for nobody.
-        globIgnores: ['**/firebase-messaging-sw.js', 'splash/**'],
+        //
+        // The Twemoji set is excluded for the same reason as the splashes, one
+        // order of magnitude up: 3,700 SVGs is 17MB, and nobody looks at more
+        // than a few dozen. They are cached as they are used, below.
+        globIgnores: ['**/firebase-messaging-sw.js', 'splash/**', 'emoji/**'],
+
+        // 3,700 files would blow past the default precache manifest budget and
+        // the emoji are the reason the number is this large.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
 
         runtimeCaching: [
+          {
+            // Emoji: cache-first and kept, because a given file never changes
+            // and an emoji that needs the network is an emoji that is blank on
+            // the train. The cap is generous — they are ~2KB each.
+            urlPattern: /\/emoji\/[0-9a-f-]+\.svg$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'twemoji',
+              expiration: { maxEntries: 1200, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Google Fonts: cache-first, they never change.
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,

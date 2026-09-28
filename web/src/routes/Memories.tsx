@@ -5,6 +5,8 @@ import { cx, ErrorNote, Loading, Modal } from '../components/ui'
 import { signedUrls, uploadMedia } from '../lib/media'
 import ReorderableGrid from '../components/ReorderableGrid'
 import { when } from '../lib/format'
+import Icon from '../components/Icon'
+import Emoji from '../components/Emoji'
 
 type Memory = {
   id: string
@@ -313,7 +315,7 @@ export default function Memories() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-bold text-white">🖼️ Memories</h3>
+        <h3 className="flex items-center gap-2 text-lg font-bold text-white"><Icon name="memories" size={19} className="text-pink-400" />Memories</h3>
         {/* Wraps rather than pushing buttons off a narrow screen — "+ Photos"
             was disappearing on a phone. */}
         <div className="flex flex-wrap gap-2">
@@ -464,7 +466,7 @@ export default function Memories() {
         /* Things exist, the filters are just hiding them. Saying "nothing here"
            made an active album or type look like an empty gallery. */
         <div className="rounded-2xl border border-rose-700/40 bg-rose-900/25 p-8 text-center">
-          <p className="text-3xl">🔍</p>
+          <Emoji size={32}>🔍</Emoji>
           <p className="mt-2 text-sm text-white">Nothing matches those filters</p>
           <p className="mt-1 text-xs text-rose-400">
             {album !== 'all'
@@ -499,7 +501,7 @@ export default function Memories() {
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-rose-700/40 bg-rose-900/20 p-8 text-center">
-          <p className="text-3xl">🖼️</p>
+          <Emoji size={32}>🖼️</Emoji>
           <p className="mt-2 text-sm text-rose-200">Nothing here yet</p>
           <p className="mt-1 text-xs leading-relaxed text-rose-400">
             This fills itself. Write a note, add a timeline moment, answer a card

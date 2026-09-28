@@ -2,11 +2,13 @@
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
+import Icon, { type IconName } from '../components/Icon'
 import { Loading } from '../components/ui'
 import Logo from '../components/Logo'
 import { ago } from '../lib/format'
 import { useDaysSince } from '../lib/useDaysSince'
 import { NUDGES, type TodayQuestion } from '../lib/types'
+import Emoji from '../components/Emoji'
 
 function greeting() {
   const h = new Date().getHours()
@@ -124,7 +126,7 @@ export default function Home() {
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
           {readyVault > 0 && (
             <Link to="/vault" className="paper animate-rise p-5 shadow-[var(--shadow-bloom)]">
-              <span className="animate-pulse-soft block text-2xl">✨</span>
+              <Emoji size={26} className="animate-pulse-soft">✨</Emoji>
               <p className="mt-2 text-base text-ink">
                 {readyVault} letter{readyVault > 1 ? 's' : ''} ready to open
               </p>
@@ -133,7 +135,7 @@ export default function Home() {
           )}
           {unreadNotes > 0 && (
             <Link to="/notes" className="surface animate-rise p-5">
-              <span className="block text-2xl">📌</span>
+              <Emoji size={26}>📌</Emoji>
               <p className="mt-2 text-base text-ink">
                 {unreadNotes} note{unreadNotes > 1 ? 's' : ''} you haven't read
               </p>
@@ -165,12 +167,12 @@ export default function Home() {
       </button>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile to="/cards" emoji="🃏" label="Draw a card" />
-        <Tile to="/timeline" emoji="🗓️" label="Timeline" />
-        <Tile to="/vault" emoji="🔒" label="The vault" />
+        <Tile to="/cards" icon="cards" label="Draw a card" />
+        <Tile to="/timeline" icon="timeline" label="Timeline" />
+        <Tile to="/vault" icon="vault" label="The vault" />
         <Tile
           to="/us"
-          emoji="🔥"
+          icon="flame"
           label={stats?.current_streak ? `${stats.current_streak}-day streak` : 'Us'}
         />
       </div>
@@ -178,13 +180,13 @@ export default function Home() {
   )
 }
 
-function Tile({ to, emoji, label }: { to: string; emoji: string; label: string }) {
+function Tile({ to, icon, label }: { to: string; icon: IconName; label: string }) {
   return (
     <Link
       to={to}
       className="surface animate-rise grid place-items-center gap-2 px-3 py-6 text-center transition-transform hover:-translate-y-0.5"
     >
-      <span className="text-2xl">{emoji}</span>
+      <Icon name={icon} size={26} className="text-pink-400" />
       <span className="text-xs text-ink-muted">{label}</span>
     </Link>
   )

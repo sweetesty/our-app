@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { Button, ErrorNote, Field, Input } from '../components/ui'
 import type { Couple } from '../lib/types'
+import Emoji from '../components/Emoji'
 
 /**
  * The only moment the app touches anyone else. One of you opens the space and
@@ -74,7 +75,7 @@ export default function PairScreen() {
       <div className="animate-rise w-full max-w-md space-y-6">
         {choice === 'created' && couple ? (
           <div className="paper space-y-5 p-7 text-center">
-            <p className="text-4xl">🔑</p>
+            <Emoji size={40}>🔑</Emoji>
             <div className="space-y-2">
               <h1 className="text-3xl text-ink">Your space is open</h1>
               <p className="text-sm leading-relaxed text-ink-muted">
@@ -114,7 +115,7 @@ export default function PairScreen() {
         ) : choice === 'joining' ? (
           <div className="surface space-y-5 p-7">
             <div className="space-y-2 text-center">
-              <p className="text-4xl">💌</p>
+              <Emoji size={40}>💌</Emoji>
               <h1 className="text-3xl text-ink">Got a code?</h1>
               <p className="text-sm text-ink-muted">The six characters they sent you.</p>
             </div>
@@ -149,7 +150,7 @@ export default function PairScreen() {
         ) : (
           <>
             <div className="space-y-2 text-center">
-              <p className="text-4xl">🚪</p>
+              <Emoji size={40}>🚪</Emoji>
               <h1 className="text-3xl text-ink">One space, two people</h1>
               <p className="text-sm leading-relaxed text-ink-muted">
                 Which one are you?
@@ -166,7 +167,7 @@ export default function PairScreen() {
               onClick={() => setChoice('joining')}
               className="w-full rounded-3xl border border-pink-500/40 bg-pink-500/10 p-5 text-left transition hover:border-pink-500/70"
             >
-              <span className="mb-1 block text-2xl">💌</span>
+              <Emoji size={26} className="mb-1">💌</Emoji>
               <span className="block text-base font-bold text-white">
                 Someone sent me a code
               </span>
@@ -180,7 +181,7 @@ export default function PairScreen() {
               onClick={() => setShowCreate((v) => !v)}
               className="w-full rounded-3xl border border-rose-700/40 bg-rose-900/30 p-5 text-left transition hover:border-rose-600/60"
             >
-              <span className="mb-1 block text-2xl">🕯️</span>
+              <Emoji size={26} className="mb-1">🕯️</Emoji>
               <span className="block text-base font-bold text-white">
                 I'm starting ours
               </span>

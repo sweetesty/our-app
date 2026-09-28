@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cx } from './ui'
+import Emoji from './Emoji'
 
 /**
  * In-app camera for Moments.
@@ -136,7 +137,7 @@ export default function CameraCapture({
         {error && (
           <div className="absolute inset-0 grid place-items-center bg-rose-950/80 p-6 text-center">
             <div>
-              <p className="text-3xl">📷</p>
+              <Emoji size={32}>📷</Emoji>
               <p className="mt-2 text-xs text-rose-300">{error}</p>
               <p className="mt-1 text-[11px] text-rose-400">
                 Use your phone's camera instead — it works the same.

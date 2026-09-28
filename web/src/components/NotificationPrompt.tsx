@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { enablePush, isConfigured, permissionState } from '../lib/push'
+import Emoji from './Emoji'
 
 const DISMISSED_KEY = 'olw-notify-dismissed'
 
@@ -85,7 +86,7 @@ export default function NotificationPrompt() {
   return (
     <div className="animate-rise rounded-3xl border border-pink-500/40 bg-gradient-to-br from-pink-950/60 to-rose-950/80 p-5 shadow-xl">
       <div className="flex items-start gap-3">
-        <span className="text-2xl">🔔</span>
+        <Emoji size={26}>🔔</Emoji>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-white">Let them reach you</p>
           <p className="mt-1 text-xs leading-relaxed text-rose-300">

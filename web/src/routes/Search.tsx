@@ -4,6 +4,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { signedUrls } from '../lib/media'
 import { cx, ErrorNote, PageHeader } from '../components/ui'
 import { when } from '../lib/format'
+import Emoji from '../components/Emoji'
 
 type Hit = {
   id: string
@@ -143,7 +144,7 @@ export default function Search() {
         </p>
       ) : hits.length === 0 ? (
         <div className="surface mt-8 p-8 text-center">
-          <p className="text-3xl">🔎</p>
+          <Emoji size={32}>🔎</Emoji>
           <p className="mt-3 text-sm text-ink">Nothing matches “{query.trim()}”.</p>
         </div>
       ) : (

@@ -5,6 +5,7 @@ import { signedUrls, uploadMedia } from '../lib/media'
 import { celebrateReveal } from '../lib/celebrate'
 import CameraCapture from './CameraCapture'
 import { cx, ErrorNote, Modal } from './ui'
+import Emoji from './Emoji'
 
 type Photo = {
   id: string
@@ -140,7 +141,7 @@ export default function DailyReveal() {
               onClick={() => setComposing(true)}
               className="grid h-full w-full place-items-center gap-1 text-rose-300"
             >
-              <span className="text-2xl">📷</span>
+              <Emoji size={26}>📷</Emoji>
               <span className="text-[0.65rem]">Post your day</span>
             </button>
           }
@@ -158,12 +159,12 @@ export default function DailyReveal() {
                   broken rather than as waiting. */}
               {!state.partner_posted ? (
                 <>
-                  <span className="text-2xl opacity-50">🌙</span>
+                  <Emoji size={26} className="opacity-50">🌙</Emoji>
                   <span className="text-[0.65rem]">Nothing yet</span>
                 </>
               ) : !mine ? (
                 <>
-                  <span className="text-2xl">🔒</span>
+                  <Emoji size={26}>🔒</Emoji>
                   <span className="text-[0.65rem] leading-relaxed">
                     Posted. Post yours to see it.
                   </span>
@@ -189,7 +190,7 @@ export default function DailyReveal() {
         </div>
       )}
 
-      <Modal open={composing} onClose={close} title="Your day 📷">
+      <Modal open={composing} onClose={close} title="Your day" icon="camera">
         {!pending ? (
           <CameraCapture
             onCaptured={(file, preview) => setPending({ file, preview })}

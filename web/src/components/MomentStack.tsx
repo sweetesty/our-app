@@ -6,6 +6,7 @@ import { ago } from '../lib/format'
 import Reactions, { type ReactionRow, useReactionSet } from './Reactions'
 import Compliments from './Compliments'
 import { cx } from './ui'
+import Emoji from './Emoji'
 
 type Moment = {
   id: string
@@ -361,7 +362,7 @@ export default function MomentStack() {
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 grid place-items-center text-4xl">📸</div>
+              <Emoji size={40} className="absolute inset-0 grid place-items-center">📸</Emoji>
             )}
           </div>
 
