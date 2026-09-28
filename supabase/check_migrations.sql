@@ -1,10 +1,14 @@
 -- ============================================================================
 -- check_migrations.sql — did 0038–0053 actually land?
 -- ============================================================================
--- Not a migration. Paste it into the SQL editor and read the answer.
+-- Not a migration. Paste the whole thing into the SQL editor and read the
+-- answer.
 --
--- Checks for the objects each file is supposed to have created, rather than
--- for a row in a migrations table — a file can be pasted in, fail halfway, and
+-- Deliberately ONE query. The editor only shows the result of the last
+-- statement, so a file of three queries silently throws the first two away.
+--
+-- It checks for the objects each migration should have created rather than for
+-- a row in a migrations table — a file can be pasted in, fail halfway, and
 -- still leave you certain you ran it. This looks at what is actually there.
 
 with expected(migration, kind, name) as (values
@@ -43,7 +47,7 @@ with expected(migration, kind, name) as (values
   ('0053 push budget',      'column',   'couples.timezone')
 ),
 present as (
-  select e.migration, e.kind, e.name,
+  select e.migration, e.name,
     case e.kind
       when 'table' then exists (
         select 1 from information_schema.tables
@@ -62,41 +66,58 @@ present as (
       )
     end as ok
   from expected e
+),
+schema_check as (
+  select
+    1 as ord,
+    migration as item,
+    (count(*) filter (where ok))::text || '/' || count(*)::text as found,
+    case when count(*) filter (where not ok) = 0
+      then '✅ OK'
+      else '❌ MISSING: ' || string_agg(name, ', ') filter (where not ok)
+    end as status
+  from present
+  group by migration
+),
+-- The seeds are the half that fails quietly: a migration can report success
+-- and insert nothing at all.
+seeds(item, actual, expected) as (
+  select 'seed · handbook sections',
+         (select count(*) from public.handbook_sections where couple_id is null), 92
+  union all select 'seed · games',
+         (select count(*) from public.games), 11
+  union all select 'seed · game prompts',
+         (select count(*) from public.game_prompts where couple_id is null), 160
+  union all select 'seed · date ideas',
+         (select count(*) from public.date_ideas where couple_id is null), 92
+  union all select 'seed · built-in cards',
+         (select count(*) from public.cards where couple_id is null), 152
+  union all select 'seed · push tiers',
+         (select count(*) from public.push_tiers), 20
+),
+seed_check as (
+  select 2 as ord, item,
+         actual::text || '/~' || expected::text as found,
+         case
+           when actual = 0 then '❌ EMPTY — the seed did not run'
+           when actual < expected * 0.9 then '⚠️ short of expected'
+           else '✅ OK'
+         end as status
+  from seeds
+),
+-- Not a schema object, so nothing else would catch it. Quiet hours are
+-- computed against this, and UTC is the wrong night for anyone outside London.
+tz_check as (
+  select 3 as ord, 'setting · timezone' as item,
+         coalesce(c.timezone, 'null') as found,
+         case when c.timezone is null
+           then '⚠️ not set — quiet hours will use UTC'
+           else '✅ OK' end as status
+  from public.couples c
 )
-select
-  migration,
-  count(*) filter (where ok)     as found,
-  count(*)                        as expected,
-  case when count(*) filter (where not ok) = 0
-    then 'OK'
-    else 'MISSING: ' || string_agg(name, ', ') filter (where not ok)
-  end as status
-from present
-group by migration
-order by migration;
-
--- ---------------------------------------------------------------------------
--- and the seeds, which are the half that silently does nothing
--- ---------------------------------------------------------------------------
-
-select 'handbook sections' as seed, count(*) as rows, 92  as expected
-  from public.handbook_sections where couple_id is null
-union all
-select 'games',               count(*), 11   from public.games
-union all
-select 'game prompts',        count(*), 160  from public.game_prompts where couple_id is null
-union all
-select 'date ideas',          count(*), 92   from public.date_ideas where couple_id is null
-union all
-select 'cards (all decks)',   count(*), 152  from public.cards where couple_id is null
-union all
-select 'push tiers',          count(*), 20   from public.push_tiers;
-
--- ---------------------------------------------------------------------------
--- the one setting that is not a schema object
--- ---------------------------------------------------------------------------
--- Quiet hours are computed against this. Null means UTC, which for anyone not
--- in London is the wrong night.
-
-select id, name, coalesce(timezone, '⚠️ not set — quiet hours will use UTC') as timezone
-from public.couples;
+select item, found, status from (
+  select * from schema_check
+  union all select * from seed_check
+  union all select * from tz_check
+) all_checks
+order by ord, item;
