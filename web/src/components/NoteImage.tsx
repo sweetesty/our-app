@@ -111,6 +111,67 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
   return lines
 }
 
+/**
+ * A tiny deterministic generator, seeded off the note's id.
+ *
+ * Math.random would re-scatter the sparkles on every redraw — every template
+ * tap, every size change — so the picture would never settle and the one you
+ * exported would not be the one you were looking at. Seeded, a given note has
+ * its own arrangement and keeps it.
+ */
+function seeded(seed: string): () => number {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return () => {
+    h += 0x6d2b79f5
+    let t = h
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** A four-point star — the shape ✨ actually is, rather than a dot. */
+function sparkle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  colour: string,
+  alpha: number,
+) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.globalAlpha = alpha
+
+  // The halo. Without it they read as specks of dust rather than light.
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2.6)
+  glow.addColorStop(0, colour)
+  glow.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.globalAlpha = alpha * 0.4
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 2.6, 0, Math.PI * 2)
+  ctx.fill()
+
+  // The star. Concave sides, so the points taper the way a glint does.
+  ctx.globalAlpha = alpha
+  ctx.fillStyle = colour
+  ctx.beginPath()
+  ctx.moveTo(0, -r)
+  ctx.quadraticCurveTo(0, 0, r, 0)
+  ctx.quadraticCurveTo(0, 0, 0, r)
+  ctx.quadraticCurveTo(0, 0, -r, 0)
+  ctx.quadraticCurveTo(0, 0, 0, -r)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.restore()
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -143,6 +204,7 @@ export default function NoteImage({
   const [size, setSize] = useState<(typeof SIZES)[number]>(SIZES[0])
   const [avatar, setAvatar] = useState<HTMLImageElement | null>(null)
   const [showAvatar, setShowAvatar] = useState(true)
+  const [sparkles, setSparkles] = useState(true)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
 
@@ -192,6 +254,29 @@ export default function NoteImage({
 
     const pad = Math.round(w * 0.11)
     const inner = w - pad * 2
+
+    /* ---- sparkles ------------------------------------------------------- */
+    // Behind the words, never across them: the middle band is left clear so
+    // nothing lands on a letter. Weighted towards the corners, which is where
+    // light pools in the photographs this is pretending to be.
+    if (sparkles) {
+      const rand = seeded(note.id)
+      const count = Math.round((w * h) / 26000)
+
+      for (let i = 0; i < count; i++) {
+        const x = rand() * w
+        const yRaw = rand()
+        // Push them out of the middle third, where the note sits.
+        const y = yRaw < 0.5 ? yRaw * 0.66 * h : (0.82 + (yRaw - 0.5) * 0.36) * h
+
+        // A few big ones carry it; the rest are dust.
+        const big = rand() < 0.12
+        const r = big ? w * (0.012 + rand() * 0.014) : w * (0.002 + rand() * 0.005)
+        const alpha = big ? 0.5 + rand() * 0.4 : 0.15 + rand() * 0.4
+
+        sparkle(ctx, x, y, r, rand() < 0.75 ? t.accent : t.ink, alpha)
+      }
+    }
 
     // A hairline frame, inset. Gives the export an edge on a white feed.
     ctx.strokeStyle = dark ? 'rgba(255,255,255,0.10)' : 'rgba(42,16,24,0.14)'
@@ -279,7 +364,7 @@ export default function NoteImage({
       year: 'numeric',
     })
     ctx.fillText(`${coupleName.toUpperCase()}  ·  ${stamp}`, w / 2, footY + Math.round(h * 0.014))
-  }, [note, size, template, avatar, showAvatar, authorName, coupleName])
+  }, [note, size, template, avatar, showAvatar, sparkles, authorName, coupleName])
 
   useEffect(() => {
     void draw()
@@ -372,6 +457,21 @@ export default function NoteImage({
             </button>
           ))}
         </div>
+
+        <button
+          onClick={() => setSparkles((v) => !v)}
+          className="flex w-full items-center gap-3 rounded-xl border border-rose-700/40 bg-rose-900/30 p-3 text-left transition hover:bg-rose-900/50"
+        >
+          <span
+            className={cx(
+              'grid size-5 shrink-0 place-items-center rounded-md border text-[0.6rem]',
+              sparkles ? 'border-pink-400 bg-pink-500 text-white' : 'border-rose-600',
+            )}
+          >
+            {sparkles && '✓'}
+          </span>
+          <span className="text-xs text-rose-200">Sparkles ✨</span>
+        </button>
 
         {summary?.couple?.avatar_url && (
           <button

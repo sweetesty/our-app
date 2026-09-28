@@ -166,7 +166,11 @@ as $$
     and extract(day   from vi.unlocked_at) = extract(day   from (select v from day))
     and vi.unlocked_at::date <= (select cutoff from lim)
 
-  order by years_ago, happened_on desc;
+  -- By position, not by name. In a UNION the ORDER BY can only see the column
+  -- labels of the *first* branch — `n.id`, `coalesce`, `?column?` and so on —
+  -- and never the RETURNS TABLE names, which do not exist until the function
+  -- returns. 8 is years_ago, 7 is happened_on.
+  order by 8, 7 desc;
 $$;
 
 grant execute on function public.on_this_day(date) to authenticated;
