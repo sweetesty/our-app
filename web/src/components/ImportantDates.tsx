@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Field, Input, Modal } from './ui'
+import Icon from './Icon'
+import Emoji from './Emoji'
 
 type UpcomingDate = {
   id: string
@@ -26,9 +28,24 @@ const KINDS = [
   { key: 'milestone', icon: '🏁', label: 'Milestone', recurs: false },
 ] as const
 
+/**
+ * A one-off date does not move — `next_occurrence()` hands it back unchanged —
+ * so once it passes, `days_away` goes negative. That used to read "In -70
+ * days". Something that already happened gets counted forwards instead.
+ */
 function countdown(days: number): string {
   if (days === 0) return 'Today'
   if (days === 1) return 'Tomorrow'
+  if (days === -1) return 'Yesterday'
+
+  if (days < 0) {
+    const ago = -days
+    if (ago < 60) return `${ago} days ago`
+    if (ago < 365) return `${Math.round(ago / 30)} months ago`
+    const years = Math.round((ago / 365) * 10) / 10
+    return `${years} year${years === 1 ? '' : 's'} ago`
+  }
+
   if (days < 7) return `In ${days} days`
   if (days < 14) return 'Next week'
   if (days < 60) return `In ${Math.round(days / 7)} weeks`
@@ -36,11 +53,13 @@ function countdown(days: number): string {
 }
 
 /**
- * The couple calendar — what's coming, not what happened.
+ * The couple calendar — what's coming, and underneath it what already happened.
  *
- * Sorted by how soon rather than by date, because "what's next" is the only
- * question anyone actually asks it. Reminders are handled server-side by the
- * same hourly job that announces vault unlocks.
+ * Sorted by how soon rather than by date, because "what's next" is the first
+ * question anyone asks it. A date that has passed doesn't vanish: it drops to
+ * the bottom and starts counting the other way, which is the whole point of
+ * logging the day you started talking. Reminders are handled server-side by
+ * the same hourly job that announces vault unlocks.
  */
 export default function ImportantDates() {
   const { coupleId, userId } = useSession()
@@ -69,10 +88,18 @@ export default function ImportantDates() {
 
   if (loading) return null
 
+  // Sorted by date, the ones that already happened sat above every birthday
+  // still coming. Upcoming first, soonest first; then what happened, most
+  // recent first — the same order you'd tell someone about them in.
+  const upcoming = dates.filter((d) => d.days_away >= 0)
+  const past = dates
+    .filter((d) => d.days_away < 0)
+    .sort((a, b) => b.days_away - a.days_away)
+
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">🎂 Important Dates</h3>
+        <h3 className="flex items-center gap-2 text-lg font-bold text-white"><Icon name="cake" size={19} className="text-pink-400" />Important Dates</h3>
         <button
           onClick={() => setOpen(true)}
           className="rounded-xl bg-rose-700 px-3 py-1.5 text-xs font-semibold shadow transition hover:bg-rose-600"
@@ -95,67 +122,20 @@ export default function ImportantDates() {
         </button>
       ) : (
         <div className="space-y-2">
-          {dates.map((d) => {
-            const soon = d.days_away <= 7
-            return (
-              <div
-                key={d.id}
-                className={cx(
-                  'flex items-center justify-between gap-3 rounded-2xl border p-4',
-                  d.days_away === 0
-                    ? 'border-pink-500/50 bg-pink-500/15'
-                    : soon
-                      ? 'border-rose-600/50 bg-rose-900/40'
-                      : 'border-rose-700/30 bg-rose-900/25',
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="text-2xl">{d.icon}</span>
-                  <div className="min-w-0">
-                    {/* The kind was only implied by the emoji, so a row read
-                        "March 10th" with no clue whose birthday it was. */}
-                    <p className="text-[10px] font-semibold tracking-wider text-pink-300 uppercase">
-                      {KINDS.find((k) => k.key === d.kind)?.label ?? 'Date'}
-                      {d.recurs_annually && ' · every year'}
-                    </p>
-                    <p className="truncate text-sm font-bold text-white">
-                      {d.title}
-                      {d.days_away === 0 && d.years_count ? (
-                        <span className="ml-2 text-pink-300">{d.years_count} years</span>
-                      ) : null}
-                    </p>
-                    <p className="text-xs text-rose-300">
-                      {new Date(d.next_on).toLocaleDateString(undefined, {
-                        day: 'numeric',
-                        month: 'long',
-                      })}
-                      {d.note && ` · ${d.note}`}
-                    </p>
-                  </div>
-                </div>
+          {upcoming.map((d) => (
+            <DateRow key={d.id} date={d} onRemove={() => void remove(d.id)} />
+          ))}
 
-                <div className="flex shrink-0 items-center gap-2">
-                  <span
-                    className={cx(
-                      'rounded-xl px-2.5 py-1 text-xs font-semibold',
-                      d.days_away === 0
-                        ? 'bg-pink-600 text-white'
-                        : 'bg-rose-950/60 text-rose-200',
-                    )}
-                  >
-                    {countdown(d.days_away)}
-                  </span>
-                  <button
-                    onClick={() => void remove(d.id)}
-                    aria-label={`Remove ${d.title}`}
-                    className="text-rose-500 transition-colors hover:text-rose-300"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+          {past.length > 0 && (
+            <>
+              <p className="px-1 pt-4 pb-1 text-[10px] font-semibold tracking-wider text-rose-500 uppercase">
+                Already happened · {past.length}
+              </p>
+              {past.map((d) => (
+                <DateRow key={d.id} date={d} onRemove={() => void remove(d.id)} />
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -170,6 +150,87 @@ export default function ImportantDates() {
         }}
       />
     </section>
+  )
+}
+
+function DateRow({ date: d, onRemove }: { date: UpcomingDate; onRemove: () => void }) {
+  const done = d.days_away < 0
+  const soon = d.days_away >= 0 && d.days_away <= 7
+
+  // A one-off that has passed has no `years_count` — it never recurs — so the
+  // elapsed years get counted here instead. It's the number the day is for.
+  const yearsSince = done ? Math.floor(-d.days_away / 365) : 0
+
+  return (
+    <div
+      className={cx(
+        'flex items-center justify-between gap-3 rounded-2xl border p-4',
+        d.days_away === 0
+          ? 'border-pink-500/50 bg-pink-500/15'
+          : done
+            ? 'border-rose-800/25 bg-rose-950/30'
+            : soon
+              ? 'border-rose-600/50 bg-rose-900/40'
+              : 'border-rose-700/30 bg-rose-900/25',
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <Emoji size={26} className={cx(done && 'opacity-60')}>
+          {d.icon}
+        </Emoji>
+        <div className="min-w-0">
+          {/* The kind was only implied by the emoji, so a row read
+              "March 10th" with no clue whose birthday it was. */}
+          <p
+            className={cx(
+              'text-[10px] font-semibold tracking-wider uppercase',
+              done ? 'text-rose-500' : 'text-pink-300',
+            )}
+          >
+            {KINDS.find((k) => k.key === d.kind)?.label ?? 'Date'}
+            {d.recurs_annually && ' · every year'}
+          </p>
+          <p className={cx('truncate text-sm font-bold', done ? 'text-rose-100' : 'text-white')}>
+            {d.title}
+            {d.days_away === 0 && d.years_count ? (
+              <span className="ml-2 text-pink-300">{d.years_count} years</span>
+            ) : null}
+          </p>
+          <p className={cx('text-xs', done ? 'text-rose-400' : 'text-rose-300')}>
+            {new Date(d.next_on).toLocaleDateString(undefined, {
+              day: 'numeric',
+              month: 'long',
+              // Without the year, a past date reads as if it's coming round again.
+              ...(done ? { year: 'numeric' as const } : {}),
+            })}
+            {yearsSince > 0 && ` · ${yearsSince} year${yearsSince === 1 ? '' : 's'} ago`}
+            {d.note && ` · ${d.note}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <span
+          className={cx(
+            'rounded-xl px-2.5 py-1 text-xs font-semibold',
+            d.days_away === 0
+              ? 'bg-pink-600 text-white'
+              : done
+                ? 'bg-rose-950/60 text-rose-400'
+                : 'bg-rose-950/60 text-rose-200',
+          )}
+        >
+          {countdown(d.days_away)}
+        </span>
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${d.title}`}
+          className="text-rose-500 transition-colors hover:text-rose-300"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -230,7 +291,7 @@ function AddDate({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add a date 🎂">
+    <Modal open={open} onClose={onClose} title="Add a date" icon="cake">
       <div className="space-y-4">
         <Field label="What kind?">
           <div className="flex flex-wrap gap-2">
@@ -245,7 +306,10 @@ function AddDate({
                     : 'border border-rose-700/40 bg-rose-900/50 text-rose-300',
                 )}
               >
-                {k.icon} {k.label}
+                <span className="flex items-center gap-1">
+                  <Emoji size={14}>{k.icon}</Emoji>
+                  {k.label}
+                </span>
               </button>
             ))}
           </div>
@@ -278,7 +342,7 @@ function AddDate({
           hint={
             selected.recurs
               ? 'Repeats every year — put the original date and it counts the years for you.'
-              : 'A one-off. It disappears from the list once it passes.'
+              : 'A one-off. Once it passes it moves down to what already happened, counting up.'
           }
         >
           <Input type="date" value={dateOn} onChange={(e) => setDateOn(e.target.value)} />

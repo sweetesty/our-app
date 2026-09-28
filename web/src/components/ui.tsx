@@ -1,4 +1,5 @@
 ﻿import { initials } from '../lib/format'
+import Icon, { type IconName } from './Icon'
 import {
   createContext,
   useContext,
@@ -326,11 +327,14 @@ export function Modal({
   open,
   onClose,
   title,
+  icon,
   children,
 }: {
   open: boolean
   onClose: () => void
   title: string
+  /** Drawn beside the title. Titles used to carry a trailing emoji instead. */
+  icon?: IconName
   children: ReactNode
 }) {
   const titleId = useId()
@@ -360,11 +364,50 @@ export function Modal({
     }
   }, [open])
 
+  /**
+   * Keep whatever you are typing in above the keyboard.
+   *
+   * The sheet is bottom-anchored, and the panel now ends where the keyboard
+   * starts (see --app-height below) — but shrinking the panel does not move its
+   * scroll position, so on a long note the reply box was simply scrolled off
+   * the bottom of it. You were typing into a box you could not see.
+   *
+   * The delay is for iOS: the field is focused before the viewport has finished
+   * resizing, so scrolling immediately scrolls to where the box used to be.
+   */
+  useEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    if (!panel) return
+
+    let timer: ReturnType<typeof setTimeout>
+
+    const reveal = (e: FocusEvent) => {
+      const field = e.target as HTMLElement | null
+      if (!field?.matches?.('input, textarea, select, [contenteditable]')) return
+      clearTimeout(timer)
+      timer = setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+    }
+
+    panel.addEventListener('focusin', reveal)
+    return () => {
+      panel.removeEventListener('focusin', reveal)
+      clearTimeout(timer)
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
+    /* Sized to the visual viewport, not the layout one. iOS leaves the layout
+       viewport full height and slides the page up behind the keys, so an
+       inset-0 sheet anchored to the bottom puts its own bottom edge — the send
+       box — underneath the keyboard. --app-height is the measured height with
+       the keyboard subtracted; the dvh fallback covers the screens that live
+       outside the app shell. */
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-scrim/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+      style={{ height: 'var(--app-height, 100dvh)' }}
       onClick={onClose}
     >
       <div
@@ -374,10 +417,11 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="animate-rise max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl rounded-b-none border border-rose-700/60 bg-rose-950 p-6 shadow-2xl sm:rounded-b-3xl"
+        className="animate-rise max-h-[90%] w-full max-w-md overflow-y-auto rounded-3xl rounded-b-none border border-rose-700/60 bg-rose-950 p-6 shadow-2xl sm:rounded-b-3xl"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-lg font-bold text-white">
+          <h2 id={titleId} className="flex items-center gap-2 text-lg font-bold text-white">
+            {icon && <Icon name={icon} size={19} className="shrink-0 text-pink-400" />}
             {title}
           </h2>
           <button

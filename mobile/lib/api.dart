@@ -109,11 +109,18 @@ class Api {
     return rows.map(CardDeck.fromMap).toList();
   }
 
+  /// `draw_card` is `returns public.cards` — one composite, so PostgREST sends
+  /// back an object, not an array. Handing that to _rows threw on `data as
+  /// List` and took the whole deck screen down with it.
   static Future<PlayCard?> drawCard(String deckId) async {
-    final rows = _rows(
-      await _db.rpc('draw_card', params: {'target_deck': deckId}),
-    );
-    return rows.isEmpty ? null : PlayCard.fromMap(rows.first);
+    final data = await _db.rpc('draw_card', params: {'target_deck': deckId});
+    if (data == null) return null;
+    if (data is List) {
+      return data.isEmpty
+          ? null
+          : PlayCard.fromMap(Map<String, dynamic>.from(data.first as Map));
+    }
+    return PlayCard.fromMap(Map<String, dynamic>.from(data as Map));
   }
 
   static Future<void> playCard(
