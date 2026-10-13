@@ -404,6 +404,33 @@ export type AnsweredBefore = {
   years_ago: number
 }
 
+/* --- board games ----------------------------------------------------------
+   Rules live in Postgres; the client only draws. See 0054_board_games.sql. */
+
+export type BoardMatch = {
+  id: string
+  couple_id: string
+  game: 'ayo' | 'whot' | 'ludo'
+  player_a: string
+  player_b: string | null
+  turn: 'a' | 'b'
+  state: unknown
+  winner: 'a' | 'b' | 'draw' | null
+  outcome: string | null
+  started_at: string
+  finished_at: string | null
+}
+
+export type AyoState = {
+  /** Twelve houses: 0–5 are seat A's, 6–11 seat B's, running anticlockwise. */
+  pits: number[]
+  store: { a: number; b: number }
+  /** Houses the last move sowed into, for animating rather than teleporting. */
+  path: number[]
+  /** Houses the last move captured from. */
+  took: number[]
+}
+
 export type Streak = {
   couple_id: string
   current_streak: number

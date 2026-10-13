@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../lib/supabase'
 import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading } from './ui'
 import Emoji from './Emoji'
+import Ayo from './boards/Ayo'
 import type { Game, GameRound } from '../lib/types'
 
 /**
@@ -26,6 +27,8 @@ export default function Games() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** A real board game, open. Separate from the prompt games entirely. */
+  const [board, setBoard] = useState<string | null>(null)
 
   const partnerName = summary?.partner?.display_name ?? 'They'
   const game = games.find((g) => g.slug === round?.game_slug) ?? null
@@ -117,6 +120,8 @@ export default function Games() {
     setDraft('')
   }
 
+  if (board === 'ayo') return <Ayo onBack={() => setBoard(null)} />
+
   if (loading) return <Loading label="Setting up…" />
 
   /* ---- choosing ---------------------------------------------------------- */
@@ -138,6 +143,46 @@ export default function Games() {
             </p>
           </div>
         )}
+
+        {/* The real ones. Different in kind from the prompt games above —
+            rules, turns, a winner — so they get their own heading rather
+            than being shuffled in among them. */}
+        <div className="space-y-2">
+          <p className="text-[0.65rem] font-semibold tracking-wider text-rose-500 uppercase">
+            Board games
+          </p>
+          <button
+            onClick={() => setBoard('ayo')}
+            className="flex w-full items-center gap-3 rounded-2xl border border-amber-700/30 bg-gradient-to-br from-amber-950/40 to-rose-900/30 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-600/50"
+          >
+            <Emoji size={26}>🪵</Emoji>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-white">Ayo</span>
+              <span className="block truncate text-xs text-rose-400">
+                Forty-eight seeds. Take your turns whenever — it waits.
+              </span>
+            </span>
+          </button>
+
+          <div className="flex gap-2">
+            {[
+              { name: 'Whot', emoji: '🃏' },
+              { name: 'Ludo', emoji: '🎲' },
+            ].map((g) => (
+              <span
+                key={g.name}
+                className="flex flex-1 items-center gap-2 rounded-2xl border border-dashed border-rose-700/30 bg-rose-900/15 p-3 text-xs text-rose-500"
+              >
+                <Emoji size={16}>{g.emoji}</Emoji>
+                {g.name} · soon
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <p className="pt-2 text-[0.65rem] font-semibold tracking-wider text-rose-500 uppercase">
+          Questions and dares
+        </p>
 
         <ul className="space-y-2">
           {games.map((g) => (
