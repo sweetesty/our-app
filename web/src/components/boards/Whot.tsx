@@ -4,6 +4,7 @@ import { supabase, errorMessage } from '../../lib/supabase'
 import { useSession } from '../../context/SessionProvider'
 import { cx, Loading } from '../ui'
 import { WhotFace, WhotBack, Shape } from './WhotCardArt'
+import { useBoardRefresh } from './useBoardRefresh'
 import WhotRulesModal from './WhotRulesModal'
 import WhotChatDrawer from './WhotChatDrawer'
 import FlyingCardOverlay, { type FlightMotion } from './FlyingCardOverlay'
@@ -137,6 +138,8 @@ export default function Whot({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     void find()
   }, [find])
+
+  useBoardRefresh(find)
 
   // Realtime subscription for moves made by either player
   useEffect(() => {

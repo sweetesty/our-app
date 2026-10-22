@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useSession } from '../../context/SessionProvider'
 
 type ChatMessage = {
   id: string
@@ -36,62 +37,89 @@ export default function WhotChatDrawer({
   myName,
   partnerName,
 }: WhotChatDrawerProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'System',
-      text: 'Game started. Tap a chip or send a message to the table!',
-      time: 'now',
-    },
-  ])
+  const { coupleId, userId } = useSession()
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Read the thread, then keep it live.
+   *
+   * This used to be a realtime broadcast and nothing else — a pipe, not a
+   * store. If you were not on this screen at that second the message had
+   * never existed: leave the board and come back and it was gone, and there
+   * was no row anywhere for a notification to be about. It is a table now
+   * (0064_board_chat.sql), which fixes both at once.
+   */
+  const load = useCallback(async () => {
+    if (!matchId) return
+    const { data } = await supabase
+      .from('board_chat')
+      .select('id, body, author_id, created_at')
+      .eq('match_id', matchId)
+      .order('created_at')
+      .limit(100)
+
+    setMessages(
+      ((data as { id: string; body: string; author_id: string; created_at: string }[]) ?? []).map(
+        (m) => ({
+          id: m.id,
+          sender: m.author_id === userId ? myName : partnerName,
+          text: m.body,
+          time: new Date(m.created_at).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        }),
+      ),
+    )
+  }, [matchId, userId, myName, partnerName])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   useEffect(() => {
     if (!matchId) return
-    const channel = supabase.channel(`whot-chat-${matchId}`)
-
-    channel
-      .on('broadcast', { event: 'chat' }, (payload) => {
-        const msg = payload.payload as ChatMessage
-        if (msg) {
-          setMessages((prev) => [...prev, msg])
-        }
-      })
+    const channel = supabase
+      .channel('board-chat-' + matchId)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'board_chat',
+          filter: 'match_id=eq.' + matchId,
+        },
+        () => void load(),
+      )
       .subscribe()
-
-    channelRef.current = channel
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [matchId])
+  }, [matchId, load])
 
   useEffect(() => {
-    if (open) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
-  function sendText(text: string) {
-    if (!text.trim() || !channelRef.current) return
-    const msg: ChatMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      sender: myName,
-      text: text.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
-
-    setMessages((prev) => [...prev, msg])
-    void channelRef.current.send({
-      type: 'broadcast',
-      event: 'chat',
-      payload: msg,
-    })
+  async function sendText(text: string) {
+    const body = text.trim()
+    if (!body || !matchId || !coupleId || !userId) return
     setDraft('')
-  }
 
+    // No optimistic copy: the insert comes straight back over realtime, and a
+    // local one would sit there looking sent even when it was not.
+    const { error } = await supabase.from('board_chat').insert({
+      couple_id: coupleId,
+      match_id: matchId,
+      author_id: userId,
+      body,
+    })
+    if (error) setDraft(body)
+    else await load()
+  }
   if (!open) return null
 
   return (

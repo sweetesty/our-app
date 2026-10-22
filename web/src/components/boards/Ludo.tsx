@@ -3,6 +3,7 @@ import { supabase, errorMessage } from '../../lib/supabase'
 import { useSession } from '../../context/SessionProvider'
 import { cx, ErrorNote, Loading } from '../ui'
 import BoardHeader, { useTurnClock } from './BoardHeader'
+import { useBoardRefresh } from './useBoardRefresh'
 // The same drawer Whot uses. It only needs a match id and two names, so there
 // was never anything card-specific about it — the other two were simply going
 // without a way to say "your go" without leaving the board.
@@ -190,6 +191,8 @@ export default function Ludo({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useBoardRefresh(load)
 
   useEffect(() => {
     if (!coupleId) return
