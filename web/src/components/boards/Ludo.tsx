@@ -140,6 +140,12 @@ export default function Ludo({ onBack }: { onBack: () => void }) {
         walkTimers.current.forEach(clearTimeout)
         walkTimers.current = []
 
+        // Pin it to where it started, straight away and synchronously. The
+        // new state has already landed, so without this the token is drawn at
+        // its destination for the 150ms before the first step fires — then
+        // snaps backwards to begin walking. That backward jump was the glitch.
+        setWalking({ seat, i, p: from })
+
         for (let p = from + 1; p <= to; p++) {
           const at = p
           walkTimers.current.push(
@@ -156,10 +162,26 @@ export default function Ludo({ onBack }: { onBack: () => void }) {
 
   useEffect(() => () => walkTimers.current.forEach(clearTimeout), [])
   const load = useCallback(async (id?: string) => {
-    const q = supabase.from('board_matches').select('*').eq('game', 'ludo')
-    const { data, error: qErr } = id
-      ? await q.eq('id', id).maybeSingle()
-      : await q.is('finished_at', null).maybeSingle()
+    const table = () => supabase.from('board_matches').select('*').eq('game', 'ludo')
+
+    // The open game if there is one; otherwise the last finished one, so a
+    // result stays on screen until somebody starts the next. Looking only
+    // for an unfinished match meant that the moment a game ended, a reload
+    // found nothing and dropped you on the new-game screen — so whoever
+    // was not watching at that second never learned they had lost.
+    let { data, error: qErr } = id
+      ? await table().eq("id", id).maybeSingle()
+      : await table().is("finished_at", null).maybeSingle()
+
+    if (!id && !data && !qErr) {
+      const last = await table()
+        .not("finished_at", "is", null)
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      data = last.data
+      qErr = last.error
+    }
     if (qErr) setError(errorMessage(qErr))
     else setMatch((data as BoardMatch) ?? null)
     setLoading(false)

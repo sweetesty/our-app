@@ -120,6 +120,9 @@ export default function Ayo({ onBack }: { onBack: () => void }) {
   const [sowing, setSowing] = useState(false)
   /** What the current frame is doing, so the screen can say it out loud. */
   const [kind, setKind] = useState<string | null>(null)
+  /** How many seeds the last capture was worth, for the banner. */
+  const [caught, setCaught] = useState<number | null>(null)
+  const prevStore = useRef<{ a: number; b: number } | null>(null)
   const timers = useRef<number[]>([])
 
   const partnerName = summary?.partner?.display_name ?? 'They'
@@ -133,10 +136,26 @@ export default function Ayo({ onBack }: { onBack: () => void }) {
   const clock = useTurnClock(match?.turn)
 
   const load = useCallback(async (id?: string) => {
-    const q = supabase.from('board_matches').select('*').eq('game', 'ayo')
-    const { data, error: qErr } = id
-      ? await q.eq('id', id).maybeSingle()
-      : await q.is('finished_at', null).maybeSingle()
+    const table = () => supabase.from('board_matches').select('*').eq('game', 'ayo')
+
+    // The open game if there is one; otherwise the last finished one, so a
+    // result stays on screen until somebody starts the next. Looking only
+    // for an unfinished match meant that the moment a game ended, a reload
+    // found nothing and dropped you on the new-game screen — so whoever
+    // was not watching at that second never learned they had lost.
+    let { data, error: qErr } = id
+      ? await table().eq("id", id).maybeSingle()
+      : await table().is("finished_at", null).maybeSingle()
+
+    if (!id && !data && !qErr) {
+      const last = await table()
+        .not("finished_at", "is", null)
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      data = last.data
+      qErr = last.error
+    }
 
     if (qErr) setError(errorMessage(qErr))
     else setMatch((data as BoardMatch) ?? null)
@@ -167,6 +186,18 @@ export default function Ayo({ onBack }: { onBack: () => void }) {
       setLit(null)
       setSowing(false)
       return
+    }
+
+    // How much the capture was worth: the difference in the stores, which is
+    // the only place that number exists.
+    const before = prevStore.current
+    prevStore.current = { ...state.store }
+    if (before) {
+      const gained = Math.max(
+        state.store.a - before.a,
+        state.store.b - before.b,
+      )
+      setCaught(gained > 0 ? gained : null)
     }
 
     setSowing(true)
@@ -358,7 +389,9 @@ export default function Ayo({ onBack }: { onBack: () => void }) {
               ? kind === 'relay'
                 ? 'Picked them up — going again'
                 : kind === 'take'
-                  ? 'Captured'
+                  ? caught
+                    ? 'Captured ' + caught + ' seeds'
+                    : 'Captured'
                   : 'Sowing…'
               : myTurn
                 ? 'Your move — tap one of your houses'

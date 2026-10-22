@@ -112,12 +112,21 @@ export default function Whot({ onBack }: { onBack: () => void }) {
   }, [notify])
 
   const find = useCallback(async () => {
-    const { data } = await supabase
-      .from('board_matches')
-      .select('id')
-      .eq('game', 'whot')
-      .is('finished_at', null)
-      .maybeSingle()
+    const table = () => supabase.from('board_matches').select('id').eq('game', 'whot')
+
+    // Open game first; otherwise the last finished one, so the result stays
+    // up until somebody deals again. Looking only for an unfinished match
+    // meant a reload after a loss dropped you straight on the new-game
+    // screen, and you never found out your partner had checked up.
+    let { data } = await table().is('finished_at', null).maybeSingle()
+    if (!data) {
+      const last = await table()
+        .not('finished_at', 'is', null)
+        .order('finished_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      data = last.data
+    }
 
     const id = (data as { id: string } | null)?.id ?? null
     setMatchId(id)

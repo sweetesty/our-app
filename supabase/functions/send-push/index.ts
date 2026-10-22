@@ -36,6 +36,8 @@ type PushEvent = {
     | 'reply'
     | 'handbook'
     | 'bucket'
+    | 'turn'
+    | 'table_chat'
     | 'test'
   couple_id: string
   sender_id: string
@@ -91,6 +93,11 @@ function pathFor(type: string, kind?: string): string {
       return '/handbook'
     case 'bucket':
       return '/bucket'
+    // Both of these land on the board they came from. Cards is where the
+    // games live.
+    case 'turn':
+    case 'table_chat':
+      return '/cards'
     case 'nudge':
       return '/nudges'
     case 'date':
@@ -386,6 +393,21 @@ function notificationFor(event: PushEvent): { title: string; body: string } {
     }
   }
 
+  if (event.type === 'turn') {
+    // The whole point is that it is actionable: a turn-based game played
+    // hours apart dies the moment nobody knows they are being waited on.
+    return {
+      title: event.sender_name + ' played · ' + (event.label ?? 'Your go'),
+      body: event.message ?? 'Your go.',
+    }
+  }
+
+  if (event.type === 'table_chat') {
+    return {
+      title: event.sender_name + ' · ' + (event.kind ? event.kind.toUpperCase() : 'the table'),
+      body: event.message ?? 'Said something at the table.',
+    }
+  }
   if (event.type === 'bucket') {
     // Ticking one off is news; it also just wrote itself onto the timeline.
     return {
