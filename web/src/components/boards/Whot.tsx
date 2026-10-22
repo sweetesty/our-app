@@ -31,7 +31,13 @@ export default function Whot({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   /** Index of the Whot 20 card waiting for the player to select a shape */
-  const [calling, setCalling] = useState<number | null>(null)
+  /**
+   * The Whot card awaiting a shape, held as the card itself rather than its
+   * position in the hand. A position goes stale the moment the hand changes —
+   * and it can, while the picker is open: their General Market deals you one,
+   * everything shifts, and the index you stored is now a different card.
+   */
+  const [calling, setCalling] = useState<WhotCard | null>(null)
   const [errorToast, setErrorToast] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState<string>('Welcome to Whot! Tap a lifted card to play')
   const [bigAnnouncement, setBigAnnouncement] = useState<BigAnnouncement | null>(null)
@@ -153,6 +159,13 @@ export default function Whot({ onBack }: { onBack: () => void }) {
   const prevTopRef = useRef<string | null>(null)
   const prevWinnerRef = useRef<string | null>(null)
   const prevMarketRef = useRef<number | null>(null)
+  /**
+   * How many cards were in my hand last time. Whose turn it is cannot tell you
+   * who just played: Hold On and Suspension both leave the turn where it was,
+   * so after playing a 1 the screen announced that your partner had done it.
+   * A hand that shrank is the only honest signal that the card was yours.
+   */
+  const prevMyCountRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!view) return
@@ -184,8 +197,10 @@ export default function Whot({ onBack }: { onBack: () => void }) {
     if (topKey && topKey !== prevTopRef.current) {
       prevTopRef.current = topKey
       if (view.top) {
-        const actor = view.my_turn ? `@${partnerName}` : 'You'
-        const target = view.my_turn ? 'You' : `@${partnerName}`
+        const iPlayedIt =
+          prevMyCountRef.current !== null && view.my_count < prevMyCountRef.current
+        const actor = iPlayedIt ? 'You' : `@${partnerName}`
+        const target = iPlayedIt ? `@${partnerName}` : 'You'
 
         if (view.top.s === 'whot' || view.top.n === 20) {
           playSpecialWhoosh()
@@ -228,6 +243,7 @@ export default function Whot({ onBack }: { onBack: () => void }) {
     } else if (view.their_count === 2) {
       notify(`@${partnerName}: Check! ⚠️`)
     }
+    prevMyCountRef.current = view.my_count
   }, [view, myName, partnerName, notify, triggerBigAnnouncement])
 
   /** Spawn card flight from hand to discard pile */
@@ -629,7 +645,7 @@ export default function Whot({ onBack }: { onBack: () => void }) {
 
     // Play card
     if (card.s === 'whot' || card.n === 20) {
-      setCalling(index)
+      setCalling(card)
     } else {
       void play(index)
     }
@@ -977,7 +993,19 @@ export default function Whot({ onBack }: { onBack: () => void }) {
                   <button
                     key={k}
                     type="button"
-                    onClick={() => void play(calling, k)}
+                    onClick={() => {
+                      // Find it again at the moment of playing, because the
+                      // hand may have moved under us since it was chosen.
+                      const at = hand.findIndex(
+                        (h) => h.s === calling.s && h.n === calling.n,
+                      )
+                      if (at < 0) {
+                        setCalling(null)
+                        notify('That card has gone — pick another', true)
+                        return
+                      }
+                      void play(at, k)
+                    }}
                     className="flex flex-col items-center justify-center rounded-xl border border-stone-800/30 bg-[#FFFDF8] py-2.5 shadow-md transition-all duration-150 hover:-translate-y-1 hover:brightness-105 active:scale-95 cursor-pointer"
                     aria-label={`Call ${k}`}
                   >
