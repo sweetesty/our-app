@@ -425,10 +425,69 @@ export type AyoState = {
   /** Twelve houses: 0–5 are seat A's, 6–11 seat B's, running anticlockwise. */
   pits: number[]
   store: { a: number; b: number }
-  /** Houses the last move sowed into, for animating rather than teleporting. */
-  path: number[]
   /** Houses the last move captured from. */
   took: number[]
+  /**
+   * The whole board after every seed drop, in order, as the engine sowed it.
+   * The client cannot derive this: once a relay is over it looks identical to
+   * ordinary sowing. See 0056_ayo_frames.sql.
+   */
+  frames?: { pits: number[]; at: number; kind: 'lift' | 'drop' | 'relay' | 'take' | 'sweep' }[]
+}
+
+export type WhotCard = { s: string; n: number }
+
+/** What whot_view() hands back: your hand, and only public facts otherwise. */
+export type WhotView = {
+  my_hand: WhotCard[]
+  top: WhotCard | null
+  called: string | null
+  pending: number
+  my_count: number
+  their_count: number
+  market: number
+  my_turn: boolean
+  seat: 'a' | 'b'
+  winner: 'a' | 'b' | 'draw' | null
+  outcome: string | null
+  /** House rules, agreed at the deal. See 0057_whot_house_rules.sql. */
+  stacking: boolean
+  market_out: 'rollover' | 'count'
+}
+
+export type LudoState = {
+  /** Which corner each seat chose. See 0062_ludo_colours.sql. */
+  colours?: { a: string; b: string }
+  /** Per seat, four tokens: 0 yard, 1–51 ring, 52–57 the run home. */
+  tokens: { a: number[]; b: number[] }
+  dice: number | null
+  /** The number actually thrown, kept even when the turn passed because of it. */
+  last?: number | null
+  sixes: number
+  log: { seat: 'a' | 'b'; d: number }[]
+  moved: number | null
+  ate: number | null
+  note?: string | null
+}
+
+export type BoardRecord = {
+  game: string
+  played: number
+  i_won: number
+  they_won: number
+  drawn: number
+  /** Current run only — a lifetime ranking between two people ages badly. */
+  streak: number
+  streak_mine: boolean | null
+}
+
+export type BoardHistoryRow = {
+  id: string
+  game: string
+  won_by_me: boolean
+  drawn: boolean
+  outcome: string | null
+  finished_at: string
 }
 
 export type Streak = {

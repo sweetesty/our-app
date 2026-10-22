@@ -4,6 +4,9 @@ import { useSession } from '../context/SessionProvider'
 import { cx, ErrorNote, Loading } from './ui'
 import Emoji from './Emoji'
 import Ayo from './boards/Ayo'
+import Whot from './boards/Whot'
+import Ludo from './boards/Ludo'
+import Record from './boards/Record'
 import type { Game, GameRound } from '../lib/types'
 
 /**
@@ -29,9 +32,26 @@ export default function Games() {
   const [error, setError] = useState('')
   /** A real board game, open. Separate from the prompt games entirely. */
   const [board, setBoard] = useState<string | null>(null)
+  /** Active board games in progress */
+  const [activeBoards, setActiveBoards] = useState<string[]>([])
 
   const partnerName = summary?.partner?.display_name ?? 'They'
   const game = games.find((g) => g.slug === round?.game_slug) ?? null
+
+  const loadActiveBoards = useCallback(async () => {
+    if (!coupleId) return
+    const { data } = await supabase
+      .from('board_matches')
+      .select('game')
+      .is('finished_at', null)
+    if (data) {
+      setActiveBoards((data as { game: string }[]).map((r) => r.game))
+    }
+  }, [coupleId])
+
+  useEffect(() => {
+    void loadActiveBoards()
+  }, [loadActiveBoards, board])
 
   useEffect(() => {
     void supabase
@@ -121,6 +141,8 @@ export default function Games() {
   }
 
   if (board === 'ayo') return <Ayo onBack={() => setBoard(null)} />
+  if (board === 'whot') return <Whot onBack={() => setBoard(null)} />
+  if (board === 'ludo') return <Ludo onBack={() => setBoard(null)} />
 
   if (loading) return <Loading label="Setting up…" />
 
@@ -153,31 +175,57 @@ export default function Games() {
           </p>
           <button
             onClick={() => setBoard('ayo')}
-            className="flex w-full items-center gap-3 rounded-2xl border border-amber-700/30 bg-gradient-to-br from-amber-950/40 to-rose-900/30 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-600/50"
+            className="flex w-full items-center gap-3 rounded-2xl border border-amber-700/30 bg-gradient-to-br from-amber-950/40 to-rose-900/30 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-600/50 relative"
           >
             <Emoji size={26}>🪵</Emoji>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-white">Ayo</span>
+              <span className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Ayo</span>
+                {activeBoards.includes('ayo') && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[0.6rem] font-bold text-amber-300 border border-amber-500/40">
+                    <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    In progress
+                  </span>
+                )}
+              </span>
               <span className="block truncate text-xs text-rose-400">
                 Forty-eight seeds. Take your turns whenever — it waits.
               </span>
             </span>
           </button>
 
-          <div className="flex gap-2">
-            {[
-              { name: 'Whot', emoji: '🃏' },
-              { name: 'Ludo', emoji: '🎲' },
-            ].map((g) => (
-              <span
-                key={g.name}
-                className="flex flex-1 items-center gap-2 rounded-2xl border border-dashed border-rose-700/30 bg-rose-900/15 p-3 text-xs text-rose-500"
-              >
-                <Emoji size={16}>{g.emoji}</Emoji>
-                {g.name} · soon
-              </span>
-            ))}
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { key: 'whot', name: 'Whot', emoji: '🃏', line: 'Pick two, hold on, check up!' },
+              { key: 'ludo', name: 'Ludo', emoji: '🎲', line: 'Six to come out, four home' },
+            ] as const).map((g) => {
+              const active = activeBoards.includes(g.key)
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => setBoard(g.key)}
+                  className="flex items-center gap-2 rounded-2xl border border-rose-700/30 bg-rose-900/30 p-3 text-left transition hover:-translate-y-0.5 hover:border-rose-600/50 relative"
+                >
+                  <Emoji size={20}>{g.emoji}</Emoji>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">{g.name}</span>
+                      {active && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[0.55rem] font-bold text-emerald-300 border border-emerald-500/40">
+                          <span className="size-1 rounded-full bg-emerald-400 animate-pulse" />
+                          Live
+                        </span>
+                      )}
+                    </span>
+                    <span className="block truncate text-[0.65rem] text-rose-400">{g.line}</span>
+                  </span>
+                </button>
+              )
+            })}
           </div>
+
+          {/* Who is on a run, and the last twenty results. */}
+          <Record />
         </div>
 
         <p className="pt-2 text-[0.65rem] font-semibold tracking-wider text-rose-500 uppercase">
